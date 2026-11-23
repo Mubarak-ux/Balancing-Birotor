@@ -14,7 +14,7 @@ Qt = QtCore.Qt
 # ----------------------------------------------------------------------------
 class BeamView(QtWidgets.QWidget):
     impulse_requested = QtCore.Signal(float)
-    FOOTER_H = 60
+    FOOTER_H = 44
     LIMIT_DEG = 33.0     # batas mekanik +/-33 deg (sinkron dengan Params.stop)
     show_load = True     # kolom BEBAN di footer (False di mode hardware)
     BEAM_HALF = 0.27     # m, setengah panjang batang 54 cm (terukur)
@@ -47,7 +47,7 @@ class BeamView(QtWidgets.QWidget):
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         W, H = self.width(), self.height()
-        Hd = H - self.FOOTER_H
+        Hd = H - (self.FOOTER_H if self.show_load else 0)
 
         p.fillRect(self.rect(), QtGui.QColor(BG))
 
@@ -181,7 +181,8 @@ class BeamView(QtWidgets.QWidget):
         p.setBrush(QtGui.QColor("#e6edf3"))
         p.drawEllipse(QtCore.QPointF(cx, cy), 0.0045 * S, 0.0045 * S)
 
-        self._draw_footer(p, W, H, Hd)
+        if self.show_load:              # footer hanya keterangan beban (simulasi)
+            self._draw_footer(p, W, H, Hd)
 
         p.setClipping(False)
         p.setBrush(Qt.NoBrush)
@@ -236,17 +237,11 @@ class BeamView(QtWidgets.QWidget):
         p.setPen(QtGui.QPen(QtGui.QColor(BORDER), 1))
         p.drawLine(QtCore.QPointF(0, top), QtCore.QPointF(W, top))
 
-        # Angka utama (sudut, setpoint, gaya) sudah ada di strip atas;
-        # footer ini hanya keterangan sekunder.
+        # Sudut, setpoint & gaya ada di strip pembacaan tepat di bawah tampilan ini.
         cols = [
-            ("SUDUT \u03b8", f"{self.th:+.2f}\u00b0", INK),
-            ("SETPOINT", f"{self.sp:+.2f}\u00b0", ACCENT),
-            ("GAYA KIRI / KANAN", f"{self.F1:.2f} / {self.F2:.2f} N", INK),
             ("BEBAN", f"{self.m * 1000:.0f} g @ {self.x * 100:.0f} cm" if self.m > 0 else "tanpa beban",
              RED if self.m > 0 else MUTED),
         ]
-        if not self.show_load:          # mode hardware: tidak ada beban simulasi
-            cols = cols[:3]
         cw = W / len(cols)
         fl = QtGui.QFont("Segoe UI", 7, QtGui.QFont.Bold)
         fv = QtGui.QFont("Consolas", 12, QtGui.QFont.Bold)
@@ -257,9 +252,9 @@ class BeamView(QtWidgets.QWidget):
                 p.drawLine(QtCore.QPointF(x0, top + 12), QtCore.QPointF(x0, H - 12))
             p.setPen(QtGui.QColor(MUTED))
             p.setFont(fl)
-            p.drawText(QtCore.QRectF(x0 + 16, top + 8, cw - 24, 12),
+            p.drawText(QtCore.QRectF(x0 + 16, top + 5, cw - 24, 12),
                        Qt.AlignLeft | Qt.AlignVCenter, label)
             p.setPen(QtGui.QColor(col))
             p.setFont(fv)
-            p.drawText(QtCore.QRectF(x0 + 16, top + 22, cw - 24, 28),
+            p.drawText(QtCore.QRectF(x0 + 16, top + 16, cw - 24, 24),
                        Qt.AlignLeft | Qt.AlignVCenter, val)

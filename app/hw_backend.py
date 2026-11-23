@@ -105,7 +105,7 @@ class HardwareBackend:
         self.load_m, self.load_x = 0.0, 0.10           # keterangan beban fisik
         self.noise = 0.0
         self.cutoff_deg = 32.0   # batas mati motor (|sudut| > ini -> PID mati), 29..33
-        self.cutoff_on = True    # False = batas mati sudut dimatikan
+        self.cutoff_on = False   # default MATI; False = batas mati sudut dimatikan
         self.trim = 0.0          # feedforward u (%, bingkai tampilan) untuk melawan
                                  # torsi tetap (batang berat sebelah / thrust beda)
 

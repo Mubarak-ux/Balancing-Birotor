@@ -1,7 +1,7 @@
 """Stylesheet aplikasi: panel instrumen terang, garis tipis, sudut tegas."""
 
 from .config import (ACCENT, ACCENT_DARK, AMBER, BG, BORDER, CARD, CARD_ALT,
-                     GREEN, INK, MONO, MUTED, RED, SURFACE, TEXT)
+                     GREEN, INK, MONO, MUTED, RED, SURFACE, TEXT, TITLE_FONT)
 
 QSS = f"""
 QMainWindow {{ background: {BG}; }}
@@ -27,12 +27,13 @@ QLabel#PillDot {{ font-size: 11px; }}
 QLabel#PillText {{ color: {TEXT}; font-family: '{MONO}'; font-size: 10px; }}
 
 /* ---------- strip pembacaan utama ---------- */
-QFrame#ReadoutBar {{ background: {CARD}; border-bottom: 1px solid {BORDER}; }}
-QFrame#ReadoutCell {{ border-right: 1px solid {BORDER}; }}
+QFrame#TopStrip {{ background: {CARD}; border-bottom: 1px solid {BORDER}; }}
+QFrame#ReadoutBar {{ background: {CARD}; border-top: 1px solid {BORDER}; }}
+QFrame#VDivider {{ background: {BORDER}; border: none; }}
 QLabel#ReadoutTitle {{ font-size: 9px; font-weight: 700; color: {MUTED}; }}
-QLabel#ReadoutValue {{ font-family: '{MONO}'; font-size: 24px; font-weight: 700; color: {INK}; }}
-QLabel#ReadoutValueSmall {{ font-family: '{MONO}'; font-size: 17px; font-weight: 700; color: {INK}; }}
-QLabel#ReadoutUnit {{ font-family: '{MONO}'; font-size: 11px; color: {MUTED}; }}
+QLabel#ReadoutValue {{ font-family: {TITLE_FONT}; font-size: 24px; font-weight: 700; color: {INK}; }}
+QLabel#ReadoutValueSmall {{ font-family: {TITLE_FONT}; font-size: 17px; font-weight: 700; color: {INK}; }}
+QLabel#ReadoutUnit {{ font-family: {TITLE_FONT}; font-size: 11px; font-weight: 700; color: {MUTED}; }}
 QLabel#StatusChip {{
     font-family: '{MONO}'; font-size: 11px; font-weight: 700;
     padding: 4px 8px; border: 1px solid {BORDER}; color: {MUTED};

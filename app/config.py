@@ -25,3 +25,8 @@ GREEN = "#15803D"
 RED = "#C0392B"
 PURPLE = "#7C3AED"      # violet: suku D / laju sudut
 MONO = "Consolas"
+
+# Font: judul & angka pembacaan = Helvetica Bold (Windows memetakan ke Arial),
+# sub judul / teks = Plus Jakarta Sans (dimuat dari app/assets/fonts).
+TITLE_FONT = "'Helvetica', 'Arial', sans-serif"
+SUB_FONT = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"

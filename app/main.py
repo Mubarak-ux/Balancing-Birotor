@@ -1,5 +1,6 @@
 """Entry point aplikasi."""
 
+import os
 import sys
 
 from PySide6 import QtGui, QtWidgets
@@ -37,6 +38,11 @@ def _light_palette():
 
 def run(seed=None, initial_mode="hw"):
     app = QtWidgets.QApplication(sys.argv)
+    fdir = os.path.join(os.path.dirname(__file__), "assets", "fonts")
+    if os.path.isdir(fdir):
+        for fn in os.listdir(fdir):
+            if fn.lower().endswith((".ttf", ".otf")):
+                QtGui.QFontDatabase.addApplicationFont(os.path.join(fdir, fn))
     app.setStyle("Fusion")
     app.setPalette(_light_palette())
     app.setStyleSheet(QSS)
