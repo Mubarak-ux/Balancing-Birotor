@@ -6,7 +6,7 @@ echo ========================================================
 echo.
 
 :: Pindah ke direktori tempat script ini berada
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 :: Cek keberadaan Python
 where python >nul 2>&1

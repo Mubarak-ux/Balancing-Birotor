@@ -20,7 +20,7 @@ from .hw_backend import (DATA_DIR, HAVE_SERIAL, HardwareBackend, list_ports,
 from .processing_launcher import start_processing
 from .sim_backend import SimBackend
 from .widgets.beam_view import BeamView
-from .widgets.controls import Card, Metric, Param, Readout, Section
+from .widgets.controls import Card, GainBox, Metric, Param, ParamBox, Readout, Section
 from .widgets.dialogs import confirm, notify
 
 Qt = QtCore.Qt
@@ -198,15 +198,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # ukuran jendela menyesuaikan layar
     # ------------------------------------------------------------------
     def show_fitted(self):
-        screen = self.screen() or QtGui.QGuiApplication.primaryScreen()
-        avail = screen.availableGeometry()
-        want_w, want_h = 1460, 900
-        if avail.width() < want_w or avail.height() < want_h:
-            self.showMaximized()
-        else:
-            self.resize(want_w, want_h)
-            self.move(avail.center() - self.rect().center())
-            self.show()
+        self.showMaximized()            # selalu penuh layar saat dibuka
 
     def closeEvent(self, event):
         self._save_ui_state()
@@ -517,21 +509,21 @@ class MainWindow(QtWidgets.QMainWindow):
         lay.setContentsMargins(6, 8, 6, 6)
         lay.setSpacing(8)
 
-        info = QtWidgets.QLabel("Simpan gain Kp/Ki/Kd saat ini beserta metrik respons "
-                                "terakhir untuk membandingkan hasil tuning.")
+        info = QtWidgets.QLabel("Simpan gain (Kp, Ti, Td dan hasil Ki, Kd) saat ini beserta metrik "
+                                "respons terakhir untuk membandingkan hasil tuning.")
         info.setObjectName("EventLabel")
         info.setWordWrap(True)
         lay.addWidget(info)
 
         self.tuning_table = self._make_table(
-            ["t", "Kp", "Ki", "Kd", "Event", "Mp", "tr", "ts", "ess"], stretch_col=4)
+            ["t", "Kp", "Ti", "Td", "Ki", "Kd", "Event", "Mp", "tr", "ts", "ess"], stretch_col=6)
         lay.addWidget(self.tuning_table, 1)
 
         row = QtWidgets.QHBoxLayout()
         row.setSpacing(7)
         b_log = QtWidgets.QPushButton("Catat gain saat ini")
         b_log.setObjectName("Primary")
-        b_log.setToolTip("Simpan Kp/Ki/Kd saat ini + metrik respons terakhir (Ctrl+L)")
+        b_log.setToolTip("Simpan Kp/Ti/Td (dan Ki/Kd) saat ini + metrik respons terakhir (Ctrl+L)")
         b_log.clicked.connect(self.log_tuning)
         b_clear = QtWidgets.QPushButton("Bersihkan")
         b_clear.clicked.connect(lambda: self.tuning_table.setRowCount(0))
@@ -570,7 +562,7 @@ class MainWindow(QtWidgets.QMainWindow):
         lay.addLayout(top)
 
         self.scenario_table = self._make_table(
-            ["Skenario", "Kp / Ki / Kd", "Mp", "tr", "tp", "ts", "ess", "Deviasi"],
+            ["Skenario", "Kp / Ti / Td", "Mp", "tr", "tp", "ts", "ess", "Deviasi"],
             stretch_col=0)
         lay.addWidget(self.scenario_table, 1)
         return w
@@ -595,12 +587,12 @@ class MainWindow(QtWidgets.QMainWindow):
         pv.addWidget(self._build_source_card())
 
         # kartu sendiri untuk aksi utama mode hardware (disembunyikan di simulasi)
-        self.power_card = Card("Daya PID", "alat asli")
+        self.power_card = Card("Toggle", "alat asli")
         self.power_card.body.addWidget(self.btn_pid_run)
         self.power_card.setVisible(False)
         pv.addWidget(self.power_card)
 
-        controller = Card("Kontrol PID", "Kp \u00b7 Ki \u00b7 Kd")
+        controller = Card("Kontrol PID", "Kp \u00b7 Ti \u00b7 Td")
         # Tombol gembok di header kartu: kunci/buka slider gain PID.
         self.btn_pid_lock = QtWidgets.QPushButton()
         self.btn_pid_lock.setObjectName("Lock")
@@ -611,16 +603,39 @@ class MainWindow(QtWidgets.QMainWindow):
         controller.head.addWidget(self.btn_pid_lock)
         # Rentang slider disesuaikan dengan model terukur (docs/pengukuran/ringkasan_pengukuran.md):
         # di atas kira-kira Kp > 0.2 + 11.4*Kd sistem tidak stabil.
-        self.kp = Param("Kp", 0, 5, self.be.kp, 0.05, "%/\u00b0")
+        # PID dependen: yang diisi Kp, Ti, Td. Ki = Kp/Ti dan Kd = Kp*Td mengikuti
+        # otomatis, jadi cukup mengubah Kp. self.ki dan self.kd hanya memegang nilai
+        # turunan (dipakai backend, log tuning, skenario) dan tidak ditampilkan.
+        kp0, ti0, td0 = self._to_dependen(self.be.kp, self.be.ki, self.be.kd)
+        self.kp = Param("Kp", 0, 5, kp0, 0.05, "%/\u00b0")
+        self.ti = ParamBox("Ti", 0.1, 30.0, ti0 or 1.5, 0.1, "s", 2, off_label="\u221e")
+        self.td = ParamBox("Td", 0.0, 2.0, td0, 0.01, "s", 3)
+        self.ti.set_off_silent(ti0 is None)
         self.ki = Param("Ki", 0, 3, self.be.ki, 0.05, "%/(\u00b0\u00b7s)")
         self.kd = Param("Kd", 0, 1.5, self.be.kd, 0.05, "%/(\u00b0/s)")
-        self.kp.setToolTip("Gain proporsional: u_P = Kp \u00b7 e (%/\u00b0)\n"
-                           "Gain terpilih di alat: Kp 3 / Ki 2 / Kd 1")
-        self.ki.setToolTip("Gain integral: u_I = Ki \u00b7 \u222be dt (dengan anti-windup)")
-        self.kd.setToolTip("Gain derivatif: u_D = \u2212Kd \u00b7 laju gyro (D pada pengukuran)")
-        for w in (self.kp, self.ki, self.kd):
+        self.kp.setToolTip("Gain proporsional: u = Kp \u00b7 (e + \u222be dt / Ti \u2212 Td \u00b7 laju gyro)\n"
+                           "Ubah Kp saja: Ki dan Kd ikut berubah (Ki = Kp/Ti, Kd = Kp\u00b7Td).\n"
+                           "Gain terpilih di alat: Kp 3, Ti 1,5 s, Td 0,33 s")
+        self.ti.setToolTip("Waktu integral Ti (s). Makin kecil, integral makin kuat.\n"
+                           "Centang \u221e untuk mematikan integral (Ki = 0).")
+        self.td.setToolTip("Waktu derivatif Td (s), D pada pengukuran (laju gyro).")
+        # kotak pembacaan gain turunan (hanya baca)
+        self.box_ki = GainBox("Ki", "%/(°·s)", "Gain integral, Ki = Kp / Ti (dihitung dari Kp dan Ti)")
+        self.box_kd = GainBox("Kd", "%/(°/s)", "Gain derivatif, Kd = Kp · Td (dihitung dari Kp dan Td)")
+        self.lb_dep = QtWidgets.QLabel()                 # pesan bila Ki/Kd dibatasi firmware
+        self.lb_dep.setObjectName("EventLabel")
+        self.lb_dep.setWordWrap(True)
+        self.lb_dep.setVisible(False)
+        for w in (self.kp, self.ti, self.td):
             controller.body.addWidget(w)
             w.changed.connect(self.on_gains)
+        boxes = QtWidgets.QHBoxLayout()
+        boxes.setSpacing(8)
+        boxes.addWidget(self.box_ki, 1)
+        boxes.addWidget(self.box_kd, 1)
+        controller.body.addLayout(boxes)
+        controller.body.addWidget(self.lb_dep)
+        self._refresh_dependen()
         pv.addWidget(controller)
 
         ref = Card("Masukan", "setpoint")
@@ -933,7 +948,7 @@ class MainWindow(QtWidgets.QMainWindow):
         lay.setContentsMargins(4, 0, 14, 0)
         lay.setSpacing(0)
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "assets", "logo_trik_ugm.jpg")
+                                 "assets", "icons", "logo_trik_ugm.jpg")
         pix = QtGui.QPixmap(logo_path)
         if not pix.isNull():
             logo = QtWidgets.QLabel()
@@ -1047,7 +1062,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _pid_authority(fmax):
         """Bias, rentang koreksi (%) dan torsi maksimum (N.m) PID hardware.
         Sama dengan firmware: bias = (8 + Fmax)/2, R = (Fmax - 8)/2;
-        F(u) = 0.1241*u - 0.316 N (docs/pengukuran/pengukuran_F.md), L = 0.25 m."""
+        F(u) = 0.1241*u - 0.316 N (docs/pengukuran/detail_pengukuran.md, Bagian 1), L = 0.25 m."""
         bias = 0.5 * (8.0 + fmax)
         R = 0.5 * (fmax - 8.0)
         tau = 0.25 * 2 * 0.1241 * R
@@ -1460,13 +1475,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # gain: hardware punya nilai awal sendiri (konservatif, Ki = 0);
         # gain simulasi disimpan & dipulihkan saat kembali ke Simulasi.
         if hw:
-            self._sim_gains = (self.kp.value(), self.ki.value(), self.kd.value())
-            for prm, v in zip((self.kp, self.ki, self.kd), self.HW_GAINS):
-                prm.set_value_silent(v)
+            self._sim_gains = (self.kp.value(), self.ti.value(), self.td.value(),
+                               self.ti.is_off())
+            kp, ti, td = self._to_dependen(*self.HW_GAINS)
+            self._set_dependen(kp, ti, td)
         elif getattr(self, "_sim_gains", None):
-            for prm, v in zip((self.kp, self.ki, self.kd), self._sim_gains):
-                prm.set_value_silent(v)
+            kp, ti, td, off = self._sim_gains
+            self._set_dependen(kp, None if off else ti, td)
         self.be = self.hw if hw else self.sim
+        self._refresh_dependen()
         self.be.set_gains(self.kp.value(), self.ki.value(), self.kd.value())
         self.hw_box.setVisible(hw)
         self.btn_pid_run.setVisible(hw)
@@ -1550,7 +1567,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Gembok berlaku di kedua mode: KUNCI = slider & spinbox gain
         # nonaktif (cegah tergeser tak sengaja, mis. saat PID alat aktif).
         locked = self.pid_locked
-        for w in (self.kp, self.ki, self.kd):
+        for w in (self.kp, self.ti, self.td):
             w.set_locked(locked)
         self.btn_pid_lock.setText("KUNCI" if self.pid_locked else "BUKA")
         self.btn_pid_lock.setToolTip(
@@ -1558,7 +1575,49 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.pid_locked else
             "Gain PID terbuka \u2014 klik untuk mengunci.")
 
+    def _ti_text(self):
+        """Ti untuk tabel: angka (s) atau ∞ bila integral dimatikan."""
+        return "∞" if self.ti.is_off() else f"{self.ti.value():.2f}"
+
+    def _set_dependen(self, kp, ti, td):
+        """Isi Kp, Ti, Td tanpa memancarkan sinyal (Ti None = tanpa integral)."""
+        self.kp.set_value_silent(kp)
+        if ti is not None:
+            self.ti.set_value_silent(ti)
+        self.ti.set_off_silent(ti is None)
+        self.td.set_value_silent(td)
+
+    @staticmethod
+    def _to_dependen(kp, ki, kd):
+        """Gain paralel (Kp, Ki, Kd) -> bentuk dependen (Kp, Ti, Td).
+        Ti = None bila Ki = 0 (tanpa integral)."""
+        ti = kp / ki if ki > 1e-9 else None
+        td = kd / kp if kp > 1e-9 else 0.0
+        return kp, ti, td
+
+    def _refresh_dependen(self):
+        """Hitung Ki = Kp/Ti dan Kd = Kp*Td dari Kp, Ti, Td. Dibatasi seperti di
+        firmware (Ki <= 3, Kd <= 1,5), supaya angka di GUI = angka yang diterima alat."""
+        kp = self.kp.value()
+        ki_raw = 0.0 if self.ti.is_off() else kp / max(self.ti.value(), 1e-6)
+        kd_raw = kp * self.td.value()
+        self.ki.set_value_silent(ki_raw)          # spinbox membatasi ke rentang 0..3
+        self.kd.set_value_silent(kd_raw)          # dan 0..1,5
+        ki, kd = self.ki.value(), self.kd.value()
+        lim = []
+        ki_max, kd_max = self.ki.sb.maximum(), self.kd.sb.maximum()    # batas firmware 3,00 / 1,50
+        if ki_raw > ki_max + 1e-9:
+            lim.append(f"Ki dibatasi {ki_max:.2f} (hitungan {ki_raw:.2f}, maks firmware)")
+        if kd_raw > kd_max + 1e-9:
+            lim.append(f"Kd dibatasi {kd_max:.2f} (hitungan {kd_raw:.2f}, maks firmware)")
+        self.box_ki.set(f"{ki:.2f}", ki_raw > ki_max + 1e-9)
+        self.box_kd.set(f"{kd:.2f}", kd_raw > kd_max + 1e-9)
+        self.lb_dep.setText("\n".join(lim))
+        self.lb_dep.setStyleSheet(f"color:{AMBER};" if lim else "")
+        self.lb_dep.setVisible(bool(lim))
+
     def on_gains(self, _=None):
+        self._refresh_dependen()
         self.be.set_gains(self.kp.value(), self.ki.value(), self.kd.value())
 
     def _start_pending(self, kind):
@@ -1890,9 +1949,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             ev = "Step setpoint" if self.event[0] == "sp" else "Gangguan beban"
         self._append_row(self.tuning_table, [
-            f"{self.be.t:.1f} s", f"{self.kp.value():.2f}", f"{self.ki.value():.2f}",
-            f"{self.kd.value():.2f}", ev, m["overshoot"], m["rise"],
-            m["settling"], m["error"]])
+            f"{self.be.t:.1f} s", f"{self.kp.value():.2f}", self._ti_text(),
+            f"{self.td.value():.2f}", f"{self.ki.value():.2f}", f"{self.kd.value():.2f}",
+            ev, m["overshoot"], m["rise"], m["settling"], m["error"]])
         self.tabs.setCurrentIndex(3)
 
     # ------------------------------------------------------------------
@@ -1982,7 +2041,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # fase ukur selesai -> catat metrik dari buffer event
         res = self._compute_current_metrics() or {k: DASH for k in METRIC_KEYS}
-        gains = f"{self.kp.value():.2f} / {self.ki.value():.2f} / {self.kd.value():.2f}"
+        gains = f"{self.kp.value():.2f} / {self._ti_text()} / {self.td.value():.2f}"
         self._append_row(self.scenario_table, [
             s["name"], gains, res["overshoot"], res["rise"], res["peak_time"],
             res["settling"], res["error"], res["deviation"]])

@@ -30,7 +30,7 @@ Meskipun visualizer 3D di-upgrade sepenuhnya, **antarmuka GUI Python (PySide6) s
 | **Busur Derajat Sudut (*Protractor Arc*)** | ❌ Hanya ada di 2D | ✅ **Ada di 2D dan 3D** | Skala busur $-33^\circ$ s/d $+33^\circ$ (batas mekanik terukur) dengan jarum aktual & setpoint |
 | **Preset Kamera Navigasi** | Mengikuti orbit standar Blender | Tombol `1` (Depan), `2` (Samping), `3` (Atas), `4` (Bawah), `R` (Reset) | Tampilan Depan (1) persis sejajar dengan tampilan 2D GUI |
 | **Modularitas Skrip 3D** | 1 file script monolithic (`blender_receiver.py`) | **5 Modul PDE Terpisah** (`NetworkIMU`, `CameraIMU`, `ModelIMU`, `HudIMU`, `BalancingPropellerIMU`) | Struktur kode terorganisir rapi per fungsi kerja |
-| **Kemudahan Eksekusi** | Harus membuka Blender manual $\to$ Text Editor $\to$ Run Script | **1-Klik Launcher** (`run_app.bat` / `run_app.py`) | Otomatis meluncurkan viewer 3D dan GUI Python bersamaan |
+| **Kemudahan Eksekusi** | Harus membuka Blender manual $\to$ Text Editor $\to$ Run Script | **1-Klik Launcher** (`launcher/run_app.bat` / `launcher/run_app.py`) | Otomatis meluncurkan viewer 3D dan GUI Python bersamaan |
 
 ---
 
@@ -110,35 +110,6 @@ Pada VERSI 2, orientasi sudut batang dan posisi kamera telah diselaraskan 100%:
 
 ---
 
-## 📁 Struktur Direktori Proyek VERSI 2
+## Struktur Direktori
 
-```text
-VERSI 2/
-├── app/                              # Modul GUI & Backend Python
-│   ├── widgets/
-│   │   ├── beam_view.py              # Visualisasi 2D interaktif (klik impuls)
-│   │   └── controls.py              # Slider parameter, kartu metrik, spinbox
-│   ├── config.py                     # Palet warna tema
-│   ├── main.py                       # Application entry point
-│   ├── main_window.py                # Jendela utama, grafik telemetri & skenario
-│   ├── metrics.py                    # Algoritma perhitungan metrik respon transien
-│   ├── processing_stream.py          # Pengirim telemetri UDP + ACK + listener impuls
-│   ├── sim_backend.py                # Model dinamika fisika & kontrol PID
-│   └── theme.py                      # Stylesheet QSS modern
-├── BalancingPropellerIMU/            # Visualizer 3D Modular (Processing P3D)
-│   ├── BalancingPropellerIMU.pde     # Main setup(), draw loop, & state telemetri
-│   ├── CameraIMU.pde                 # Kamera orbit, pencahayaan, input kontrol
-│   ├── HudIMU.pde                    # Overlay Heads-Up Display 2D
-│   ├── ModelIMU.pde                  # Geometri 3D rakitan alat, panah thrust, baling-baling
-│   └── NetworkIMU.pde                # Socket UDP, JSON parser, ACK reply, & pemicu impuls
-├── docs/                             # Dokumentasi & Tangkapan Layar
-│   ├── README.md                     # Indeks dokumentasi
-│   ├── pengukuran/                   # Data terukur alat: ringkasan, redaman b, gaya dorong F
-│   ├── kontrol_pid/                  # PID hardware: model, log uji
-│   ├── versi2.md                     # Laporan komparasi & upgrade VERSI 1 vs VERSI 2
-│   └── assets/                       # Gambar tampak alat (atas/depan/samping/bawah)
-├── firmware/                         # Firmware ESP32 (esp32_pid: IMU + motor + PID; esp32_imu_test: tes IMU; esp32_motor_only: tes/kalibrasi ESC)
-├── data/                             # Hasil rekaman CSV (tidak di-commit)
-├── run_app.py                        # Launcher utama Python (Simulasi & Hardware)
-└── run_app.bat                       # Script batch 1-klik untuk Windows (Launcher Utama)
-```
+Pohon direktori lengkap ada di [`strukturPY.txt`](strukturPY.txt) dan ringkasnya di README utama.

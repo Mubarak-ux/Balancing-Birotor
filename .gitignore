@@ -23,6 +23,9 @@ data/**/*.csv
 build/
 *.exe
 
+# Shortcut Windows lokal (berisi path laptop ini)
+*.lnk
+
 
 # Hasil kompilasi Arduino/ESP32 (dibuat ulang setiap compile/upload)
 firmware/**/build/

@@ -1,7 +1,9 @@
 VERSI 2/
 ├── app/                             # Backend simulasi, kontrol, dan GUI Python
 │   ├── assets/
-│   │   └── logo_trik_ugm.jpg        # Banner logo TRIK & UGM
+│   │   ├── fonts/                   # Plus Jakarta Sans
+│   │   ├── icons/                   # GUI_BP.ico, samping_icon.png, logo_trik_ugm.jpg
+│   │   └── images/                  # splash_bg.jpg (latar loading screen)
 │   ├── widgets/                     # Komponen UI kustom
 │   │   ├── beam_view.py             # Visualisasi 2D batang (klik = impuls)
 │   │   ├── controls.py              # Slider parameter, kartu, metrik
@@ -13,23 +15,28 @@ VERSI 2/
 │   ├── main_window.py               # Jendela utama, grafik, panel kontrol
 │   ├── metrics.py                   # Metrik respon transien
 │   ├── processing_launcher.py       # Peluncur viewer Processing
+│   ├── splash.py                    # Loading screen
 │   ├── processing_stream.py         # Telemetri UDP ke viewer Processing 3D
 │   ├── sim_backend.py               # Model fisika seesaw + PID simulasi
 │   ├── theme.py                     # Stylesheet QSS
 │   └── __init__.py
-├── BalancingPropellerIMU/           # Viewer 3D Processing (P3D)
-│   ├── BalancingPropellerIMU.pde    # Setup, draw loop, state telemetri
-│   ├── CameraIMU.pde                # Kamera orbit, cahaya, input
-│   ├── HudIMU.pde                   # HUD 2D
-│   ├── ModelIMU.pde                 # Geometri 3D alat
-│   └── NetworkIMU.pde               # UDP port 9999 & ACK
+├── viewer3d/
+│   └── BalancingPropellerIMU/       # Viewer 3D Processing (P3D)
+│       ├── BalancingPropellerIMU.pde  # Setup, draw loop, state telemetri
+│       ├── CameraIMU.pde            # Kamera orbit, cahaya, input
+│       ├── HudIMU.pde               # HUD 2D
+│       ├── ModelIMU.pde             # Geometri 3D alat
+│       └── NetworkIMU.pde           # UDP port 9999 & ACK
 ├── data/                            # Rekaman CSV (tidak di-commit)
 │   ├── 2026-11-09_11_uji_awal/      # Uji IMU & uji ayunan
-│   └── 2026-11-18_uji_pid/          # Uji PID hardware
+│   ├── 2026-11-18_uji_pid/          # Uji PID hardware
+│   ├── 2026-11-23_uji_sudut_motor_mati/  # Tahan batang 5/10/15 deg motor mati
+│   └── 2026-11-23_uji_k_pid_tunak/  # PID tunak 0/5/10/-5 deg (k, tau, T_delay)
 ├── docs/                            # Dokumentasi (lihat docs/README.md)
 │   ├── assets/                      # Foto tampak alat
-│   ├── pengukuran/                  # ringkasan, redaman b, gaya dorong F, hitungan J
-│   ├── kontrol_pid/                 # struktur PID, identifikasi model, log uji
+│   ├── referensi/skill_antislop/    # Catatan skill anti-AI-slop (bukan bagian proyek kontrol)
+│   ├── pengukuran/                  # ringkasan_pengukuran.md, detail_pengukuran.md (F, b, k, tau/T_delay), hitungan J
+│   ├── kontrol_pid/                 # README, tuning_pid_dependen.md, log_dan_identifikasi.md
 │   ├── README.md                    # Indeks dokumentasi
 │   ├── strukturPY.txt               # File ini
 │   └── versi2.md                    # Komparasi VERSI 1 vs VERSI 2
@@ -40,5 +47,11 @@ VERSI 2/
 │   └── backup_uno/                  # Backup firmware Arduino Uno lama (.hex)
 ├── requirements.txt                 # Dependensi Python
 ├── README.md                        # Dokumentasi utama & panduan
-├── run_app.bat                      # Launcher 1-klik Windows
-└── run_app.py                       # Launcher Python (Simulasi & Hardware)
+├── analisis/
+│   ├── hitung_k.py                  # Hitung k dari rekaman PID tunak (CSV)
+│   └── hitung_tau_delay.py          # Hitung lag motor (tau) dan T_delay dari rekaman PID
+└── launcher/
+    ├── GUI_BP.pyw                   # Pintu masuk tanpa konsol (dipakai shortcut)
+    ├── buat_shortcut.ps1            # Membuat shortcut "GUI BP" di Desktop
+    ├── run_app.bat                  # Launcher 1-klik Windows
+    └── run_app.py                   # Launcher Python (Simulasi & Hardware)

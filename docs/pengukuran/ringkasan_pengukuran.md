@@ -1,7 +1,7 @@
 # Ringkasan Pengukuran Rig Twin Rotor (Pitch 1-DOF)
 
 Proyek: PID Twin Rotor 1-DOF Pitch, upgrade dari Arduino Uno ke ESP32.
-Periode data: 9–18 November 2026.
+Periode data: 9–23 November 2026.
 Status: **semua nilai di bawah adalah hasil terbaru yang valid**. Nilai yang
 masih asumsi atau belum diukur ditandai jelas.
 
@@ -20,9 +20,13 @@ masih asumsi atau belum diukur ditandai jelas.
 | Rentang throttle kerja | 8 % (F-min) – 15 % (F-max) | uji slider |
 | Gaya dorong `F(u)` (8–15 %) | `0,1241·u − 0,316` N | timbangan |
 | F pada 8 / 11 / 15 % | 0,69 / ≈1,05 / 1,55 N | timbangan (11 % interpolasi) |
-| Kekakuan sudut `k` (motor menyala) | −0,054 … −0,081 N·m/rad (**tidak stabil**) | identifikasi data PID |
-| Lag motor + baling-baling `τ` | 0,10–0,15 s | identifikasi data PID |
-| Delay (ESC + komunikasi) | 0,03–0,05 s | identifikasi data PID |
+| Kekakuan sudut `k` | **−0,05 N·m/rad (rentang pakai −0,03 … −0,07), tidak stabil** | PID tunak 23-11 (`detail_pengukuran.md`, Bagian 3) |
+| Torsi tetap `c0` | +0,013 N·m (trim u ≈ −6 % di 0°) | PID tunak dan fit τ/T_delay |
+| Lag motor + baling-baling `τ` | 0,15–0,19 s (hasil awal 0,18) | fit data PID 23-11 (`detail_pengukuran.md`, Bagian 4) |
+| Delay `T_delay` (ESC + komunikasi + filter IMU) | 0,06–0,085 s (hasil awal 0,08) | fit data PID 23-11 |
+| Thrust motor kiri dan kanan | `F1 = F2` (motor sejenis), tidak diukur terpisah | asumsi, diputuskan 23-11 |
+| Gesekan statis poros | orde 0,02 N·m | uji tahan motor mati 23-11 |
+| Arah putar motor | kiri CW (IO26, 1045R), kanan CCW (IO25) | pemeriksaan di rig |
 | Gain PID terpilih | Kp 3 / Ki 2 / Kd 1 | uji di alat |
 
 ---
@@ -204,8 +208,8 @@ Dicocokkan dengan simulasi loop tertutup ke rekaman uji PID 18-11-2026.
 Temuan penting:
 - **k negatif → batang tidak stabil alami** (seperti pendulum terbalik): tanpa
   kontrol batang selalu jatuh ke batas mekanik (diam di ±31–33°). Berbeda dengan
-  uji ayunan 11-11 (k positif) → kemungkinan pusat massa naik setelah ESP32/kabel
-  dipasang. Perlu dicek ulang.
+  uji ayunan 11-11 (k positif) → pusat massa naik setelah ESP32/kabel dipasang.
+  **Sudah diukur ulang 23-11:** k ≈ −0,05 N·m/rad (lihat bagian 12).
 - **Tidak simetris**: sisi negatif jatuh lebih kuat. Untuk diam di −22° butuh
   u ≈ +10 %, di 0° butuh u ≈ −11 %.
 - **Torsi tetap** (batang berat sebelah / thrust kiri-kanan beda): butuh trim
@@ -234,24 +238,40 @@ tenang ±10° turun dari ~9 s ke 2–3 s.
 
 ---
 
-## 9. Parameter model untuk simulasi
+## 9. Parameter model untuk simulasi (dan untuk Simulink)
 
 ```python
 L    = 0.25          # m, terukur
 J0   = 0.0140        # kg.m^2, hitungan (0,013–0,015)
 b    = 0.033         # N.m.s/rad, uji ayunan (motor mati)
-k    = -0.054..-0.081  # N.m/rad, identifikasi (motor menyala) -> tidak stabil
-F(u) = 0.1241*u - 0.316  # N, u = 8..15 %
-tau  = 0.10..0.15    # s, lag motor + baling-baling
-delay= 0.03..0.05    # s
+k    = -0.05         # N.m/rad, PID tunak 23-11 (uji -0,03 dan -0,07) -> tidak stabil
+c0   = 0.013         # N.m, torsi tetap (trim u ~ -6 % di 0 deg)
+F(u) = 0.1241*u - 0.316  # N, u = 8..15 %, dipakai untuk kedua motor (F1 = F2)
+tau  = 0.15..0.19    # s, lag motor + baling-baling (fit 23-11, hasil awal 0,18)
+delay= 0.06..0.085   # s, ESC + komunikasi + filter IMU (hasil awal 0,08)
 stop = 33 deg        # batas mekanik
 ```
 
-Catatan: `app/sim_backend.py` sudah memakai model ini (k = −0,065, asimetri sisi
-negatif −0,04, torsi tetap c0 = 0,024 N·m, τ = 0,15 s, delay 0,04 s, turbulensi
-0,006 N·m) dan hukum kontrol yang sama dengan firmware `esp32_pid`. Dengan gain
-3 / 2 / 1 simulasi memberi lewat setpoint ~3,6° (+10) dan ~8,6° (−10), dekat
-dengan alat (4,9° dan 9,3°).
+Transfer function plant untuk tuning: `G(s) = L / (J·s² + b·s + k) = 0,25 / (0,014·s² + 0,033·s − 0,05)`,
+pole +1,05 dan −3,41 rad/s (tidak stabil, real). Motor: `1/(τs + 1)` diikuti Transport Delay `T_delay`.
+
+Catatan: `app/sim_backend.py` sudah diperbarui 23-11 dengan hasil pengukuran terbaru
+(k = −0,05, c0 = 0,013 N·m, τ = 0,16 s, delay 0,05 s ditambah penahan ESC 50 Hz sekitar
+0,01 s sehingga T_delay efektif sekitar 0,06 s). Asimetri sisi negatif (k tambahan −0,04) dan
+turbulensi 0,006 N·m tidak diubah, dan hukum kontrolnya sama dengan firmware `esp32_pid`.
+Perbandingan dengan alat, gain 3 / 2 / 1 (rata-rata 6 seed):
+
+| Besaran | Alat | Simulasi sebelumnya | Simulasi sekarang |
+|---|---|---|---|
+| Std sudut di 0° | 0,55–0,98° | 0,57° | 0,58° |
+| u tunak di 0° (trim) | ≈ −6 % | −10,9 % | −5,8 % |
+| Lewat setpoint, step +10° | 4,9° | 3,7° | 4,0° |
+| Lewat setpoint, step −10° | 9,3° | 8,5° | 8,2° |
+| Waktu tenang ±1,5°, step +10° | 2,3 s | 2,4 s | 3,2 s |
+
+Trim dan overshoot sekarang lebih dekat ke alat. Waktu tenang di simulasi sedikit lebih lambat.
+Nilai τ dan delay di ujung bawah rentang hasil fit (0,15 dan 0,04) memberi waktu tenang 2,4 s tetapi
+overshoot lebih kecil (3,2° dan 7,1°), jadi nilai sekarang adalah kompromi.
 
 ---
 
@@ -259,12 +279,15 @@ dengan alat (4,9° dan 9,3°).
 
 | Parameter | Status | Cara ukur |
 |---|---|---|
-| Kurva F motor kedua | Baru 1 motor diukur | timbangan, prosedur sama |
+| Kurva F motor kedua | Tidak diukur, diasumsikan `F1 = F2` (motor sejenis); selisih kecil terserap trim | – |
 | Tegangan & arus power supply saat uji | Belum dicatat | baca label / multimeter |
 | J absolut independen | Masih hitungan | bandul bifilar `J = T²·m·g·d²/(4π²·L)` |
 | Massa propeller | Asumsi 10 g | timbang 1 buah |
-| Massa & posisi PCB ESP32 | Belum masuk J | timbang + ukur jarak |
-| Penyebab k negatif & asimetri | Dugaan: pusat massa naik / kabel | uji lepas motor mati setelah rig dirapikan |
+| Massa & posisi PCB ESP32 | Belum masuk J. J tetap 0,0140 (keputusan 23-11) | timbang + ukur jarak bila J mau dikoreksi |
+| Besar k lebih teliti | k = −0,05 ± 0,02, titik tidak rapi (gesekan poros, sisi negatif) | rekam PID tunak ±15°, tiap sudut dari dua arah |
+| τ dan T_delay lebih tajam | Hasil awal dari rekaman batang ditahan (eksitasi kecil) | rekam step R2 (0 → 5 → 0 → −5 → 0°) lalu `hitung_tau_delay.py` |
+| Redaman b dengan k < 0 | Nilai lama 0,033 (diukur saat k > 0) | rekaman gerak bebas motor mati, fit dengan k diketahui |
+| Sisi sudut negatif | k lebih besar di sisi negatif (model alat: −0,04 tambahan), belum terukur andal | rekam PID tunak −10°, −15° |
 | Redaman aerodinamis saat motor menyala | Belum dipisah dari b | uji ayunan dengan motor di bias |
 
 ---
@@ -280,3 +303,56 @@ dengan alat (4,9° dan 9,3°).
   firmware memakai soft-start (0 → 8 % dalam 1 s).
 - Perbaikan paling efektif berikutnya bersifat **fisik**: seimbangkan dan turunkan
   pusat massa batang agar k mendekati nol atau positif.
+
+---
+
+## 12. Sesi 23-11-2026: pengukuran syarat tuning PID dependen
+
+Tujuan: melengkapi parameter plant untuk tuning PID dependen
+(`kontrol_pid/tuning_pid_dependen.md`). Simulink dikerjakan di laptop lain;
+laptop yang memegang rig (GUI, ESP32) mengukur parameter dan merekam data.
+
+### 12.1 Keputusan
+
+| Hal | Keputusan |
+|---|---|
+| Arah putar motor | Kiri CW (IO26, propeller 1045R), kanan CCW (IO25). Label di GUI, firmware, dan dokumen sudah disamakan |
+| Thrust motor kedua | Tidak diukur. `F1 = F2`, motor sejenis. Selisih kecil kiri-kanan terserap trim |
+| Momen inersia `J` | Tetap 0,0140 kg·m² (tidak diukur ulang) |
+| Parameter yang diukur | `k`, `τ` (lag motor), `T_delay`, dan `b` (menyusul) |
+
+### 12.2 Hasil
+
+| Parameter | Hasil | Rincian |
+|---|---|---|
+| `k` | −0,05 N·m/rad (−0,03 … −0,07) | [`detail_pengukuran.md`](detail_pengukuran.md), Bagian 3 |
+| `c0` | +0,013 N·m | sama |
+| `τ` | 0,15–0,19 s (hasil awal 0,18) | [`detail_pengukuran.md`](detail_pengukuran.md), Bagian 4 |
+| `T_delay` | 0,06–0,085 s (hasil awal 0,08) | sama |
+| `b` | 0,033 (nilai lama, belum diukur ulang untuk k < 0) | [`detail_pengukuran.md`](detail_pengukuran.md), Bagian 2 |
+
+### 12.3 Rekaman
+
+| Folder `data/` | Isi | Dipakai untuk |
+|---|---|---|
+| `2026-11-23_uji_sudut_motor_mati/` | Batang ditahan di 5°, 10°, 15° lalu dilepas (6 rekaman) | Tanda k, gesekan poros |
+| `2026-11-23_uji_k_pid_tunak/` | PID 3 / 2 / 1, setpoint 0°, 5°, 10°, −5° (4 rekaman) | Besar k, c0, τ, T_delay |
+
+### 12.4 Temuan
+
+- Batang dilepas dari 15° saat motor mati jatuh ke batas mekanik (30,75°) dalam 1,4 s, sedangkan
+  di 5° dan 10° tertahan. Tanda k negatif, dan gesekan statis poros sekitar 0,02 N·m.
+- PID menahan batang di 0° sampai 10° dengan goyangan sekitar ±1°. Makin besar sudut positif, torsi
+  penahan makin negatif (sesuai k < 0).
+- Plant open-loop punya satu pole real tidak stabil (+1,05 rad/s, waktu 2× lipat 0,66 s). Loop
+  tertutup dengan PID stabil. Batas bawah Kp = |k|/L ≈ 0,2 N/rad (sekitar 0,4 di satuan firmware).
+- Gain PID dependen yang dikirim ke GUI dikonversi dulu ke bentuk paralel firmware:
+  `Ki = Kp/Ti`, `Kd = Kp·Td`.
+
+### 12.5 Alat bantu baru
+
+| Berkas | Fungsi |
+|---|---|
+| `analisis/hitung_k.py` | Hitung k dan c0 dari rekaman PID tunak |
+| `analisis/hitung_tau_delay.py` | Hitung τ dan T_delay dari rekaman PID (prediksi jangka pendek) |
+| `launcher/GUI_BP.pyw`, `buat_shortcut.ps1` | Shortcut "GUI BP" dengan layar penuh |

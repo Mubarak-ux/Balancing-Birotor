@@ -6,17 +6,17 @@ Processing bisa dibuka belakangan lewat tombol "Buka 3D" di header GUI,
 atau langsung saat start dengan flag --3d.
 
 Jalankan di terminal:
-    python run_app.py              # GUI Python saja (tanpa 3D)
-    python run_app.py --3d         # GUI + langsung jalankan viewer 3D
-    python run_app.py --editor     # GUI + buka sketch di editor Processing
-    python run_app.py --mode sim   # GUI langsung terbuka di mode Simulasi
+    python launcher/run_app.py      # GUI Python saja (tanpa 3D)
+    python launcher/run_app.py --3d         # GUI + langsung jalankan viewer 3D
+    python launcher/run_app.py --editor     # GUI + buka sketch di editor Processing
+    python launcher/run_app.py --mode sim   # GUI langsung terbuka di mode Simulasi
 """
 
 import argparse
 import os
 import sys
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # akar proyek
 
 
 def run_gui(initial_mode="hw", seed=None):

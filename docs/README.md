@@ -1,57 +1,48 @@
 # Dokumentasi
 
-Folder ini berisi seluruh catatan teknis & laporan proyek. README utama
-(instalasi, cara menjalankan, struktur kode) ada di **[`../README.md`](../README.md)**.
+README utama (instalasi, cara menjalankan, struktur kode) ada di **[`../README.md`](../README.md)**.
+
+## Mulai dari mana?
+
+| Saya ingin… | Buka |
+|---|---|
+| Melihat semua angka hasil pengukuran alat | [`pengukuran/ringkasan_pengukuran.md`](pengukuran/ringkasan_pengukuran.md) |
+| Tahu bagaimana k, b, F, τ, atau T_delay diukur | [`pengukuran/detail_pengukuran.md`](pengukuran/detail_pengukuran.md) |
+| Mengirim parameter ke laptop Simulink dan tuning PID dependen | [`kontrol_pid/tuning_pid_dependen.md`](kontrol_pid/tuning_pid_dependen.md) (Bagian I) |
+| Tahu struktur kontrol firmware, pengaman, dan gain sekarang | [`kontrol_pid/README.md`](kontrol_pid/README.md) |
+| Melihat riwayat uji PID dan identifikasi model | [`kontrol_pid/log_dan_identifikasi.md`](kontrol_pid/log_dan_identifikasi.md) |
+| Membandingkan VERSI 1 (Blender) dan VERSI 2 (Processing) | [`versi2.md`](versi2.md) |
 
 ## Susunan folder
 
 ```
 docs/
-├── README.md                 # indeks ini
-├── versi2.md                 # komparasi VERSI 1 (Blender) vs VERSI 2 (Processing)
-├── strukturPY.txt            # pohon direktori proyek
-├── pengukuran/               # parameter fisik alat (week 1–2)
-├── kontrol_pid/              # PID di alat asli (week 3)
-└── assets/                   # foto tampak alat
+├── README.md                  # indeks ini
+├── versi2.md                  # komparasi VERSI 1 vs VERSI 2
+├── strukturPY.txt             # pohon direktori proyek
+├── pengukuran/
+│   ├── ringkasan_pengukuran.md   # semua angka, status, log sesi
+│   ├── detail_pengukuran.md      # F, b, k, tau/T_delay: metode dan data
+│   └── menghitung_J.png, rumus_awal_momen_inersia.png   # catatan hitungan J
+├── kontrol_pid/
+│   ├── README.md                 # struktur kontrol firmware, pengaman, gain
+│   ├── tuning_pid_dependen.md    # serah terima (Bagian I) + rencana kerja (Bagian II)
+│   ├── log_dan_identifikasi.md   # log 7 uji PID + identifikasi model
+│   └── blok_diagram_pid*.svg     # diagram blok
+├── assets/                    # foto tampak alat
+└── referensi/skill_antislop/  # catatan skill anti-AI-slop (bukan bagian proyek kontrol)
 ```
-
-## `pengukuran/` — parameter fisik alat
-
-| Berkas | Isi |
-|---|---|
-| [`ringkasan_pengukuran.md`](pengukuran/ringkasan_pengukuran.md) | Massa, dimensi, momen inersia J, parameter simulasi, daftar yang belum diukur. |
-| [`pengukuran_b.md`](pengukuran/pengukuran_b.md) | Redaman `b` dari uji ayunan (`b = 2·J·α`), plus cek ulang & konstanta pemulih k. |
-| [`pengukuran_F.md`](pengukuran/pengukuran_F.md) | Gaya dorong F vs throttle (timbangan), batas F-min 8 % / F-max 15 %. |
-| `menghitung_J.png`, `rumus_awal_momen_inersia.png` | Catatan hitungan J. |
-
-## `kontrol_pid/` — PID hardware
-
-| Berkas | Isi |
-|---|---|
-| [`README.md`](kontrol_pid/README.md) | Struktur kontrol firmware `esp32_pid`, pengaman, gain terpilih (3 / 2 / 1). |
-| [`identifikasi_model.md`](kontrol_pid/identifikasi_model.md) | Model rig dari data PID nyata (k, lag motor, delay) & tuning robust. |
-| [`log_uji_pid.md`](kontrol_pid/log_uji_pid.md) | Riwayat 7 uji PID 18-11-2026: hasil, temuan, perbaikan. |
 
 ## Data rekaman
 
-CSV rekaman ada di `../data/` (tidak di-commit ke git), dikelompokkan per sesi:
+CSV rekaman ada di `../data/` (tidak ikut git), dikelompokkan per sesi:
 
-| Folder | Isi |
-|---|---|
-| `data/2026-11-09_11_uji_awal/` | Uji baca IMU & uji ayunan (sumber `pengukuran_b.md`). |
-| `data/2026-11-18_uji_pid/` | 10 rekaman uji PID (sumber `kontrol_pid/`). |
-
-Rekaman baru dari GUI tetap tersimpan di `data/`; pindahkan ke folder sesi bila perlu.
-
-## Parameter kunci (ringkas)
-
-| Parameter | Nilai | Sumber |
+| Folder | Isi | Sumber untuk |
 |---|---|---|
-| `L` (poros → propeller) | 0,25 m | terukur |
-| `J0` (momen inersia) | 0,0140 kg·m² | hitungan massa + geometri |
-| `b` (redaman poros) | 0,033 ± 0,002 N·m·s/rad | uji ayunan (motor mati) |
-| `stop` (batas mekanik) | ±33° | terukur |
-| `F(u)` (thrust, 8–15 %) | 0,1241·u − 0,316 N | timbangan (`pengukuran_F.md`) |
-| `k` (kekakuan sudut) | −0,05 … −0,08 N·m/rad (tidak stabil alami) | identifikasi data PID |
-| lag motor + delay | ~0,10–0,15 s + 0,03–0,05 s | identifikasi data PID |
-| Gain PID hardware | Kp 3 / Ki 2 / Kd 1 | uji ke-7 |
+| `data/2026-11-09_11_uji_awal/` | Uji baca IMU dan uji ayunan | `detail_pengukuran.md`, Bagian 2 |
+| `data/2026-11-18_uji_pid/` | 10 rekaman uji PID | `kontrol_pid/log_dan_identifikasi.md` |
+| `data/2026-11-23_uji_sudut_motor_mati/` | Tahan batang 5°, 10°, 15° motor mati | `detail_pengukuran.md`, Bagian 3 |
+| `data/2026-11-23_uji_k_pid_tunak/` | PID tunak 0°, 5°, 10°, −5° | `detail_pengukuran.md`, Bagian 3 dan 4 |
+
+Rekaman baru dari GUI tersimpan di `data/`; pindahkan ke folder sesi bila perlu. Skrip analisisnya ada di
+`../analisis/` (`hitung_k.py`, `hitung_tau_delay.py`).

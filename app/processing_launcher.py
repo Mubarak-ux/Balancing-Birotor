@@ -12,7 +12,7 @@ import tempfile
 import time
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKETCH_DIR = os.path.join(BASE_DIR, "BalancingPropellerIMU")
+SKETCH_DIR = os.path.join(BASE_DIR, "viewer3d", "BalancingPropellerIMU")
 PDE_PATH = os.path.join(SKETCH_DIR, "BalancingPropellerIMU.pde")
 BUILD_DIR = os.path.join(tempfile.gettempdir(), "BalancingPropellerIMU_build")
 CRASH_LOG_DIR = os.path.join(tempfile.gettempdir(), "BalancingPropellerIMU_crash")

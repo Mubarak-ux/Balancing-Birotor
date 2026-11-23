@@ -6,7 +6,6 @@ import sys
 from PySide6 import QtGui, QtWidgets
 
 from .config import ACCENT, BG, CARD, TEXT
-from .main_window import MainWindow
 from .theme import QSS
 
 
@@ -36,9 +35,18 @@ def _light_palette():
     return pal
 
 
-def run(seed=None, initial_mode="hw"):
+def run(seed=None, initial_mode="hw", splash=True):
+    if sys.platform == "win32":
+        try:                    # ikon sendiri di taskbar, bukan ikon Python
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("GUI.BP.BalancingPropeller")
+        except Exception:
+            pass
     app = QtWidgets.QApplication(sys.argv)
-    fdir = os.path.join(os.path.dirname(__file__), "assets", "fonts")
+    app.setApplicationName("GUI BP")
+    here = os.path.dirname(os.path.abspath(__file__))
+    app.setWindowIcon(QtGui.QIcon(os.path.join(here, "assets", "icons", "GUI_BP.ico")))
+    fdir = os.path.join(here, "assets", "fonts")
     if os.path.isdir(fdir):
         for fn in os.listdir(fdir):
             if fn.lower().endswith((".ttf", ".otf")):
@@ -46,6 +54,21 @@ def run(seed=None, initial_mode="hw"):
     app.setStyle("Fusion")
     app.setPalette(_light_palette())
     app.setStyleSheet(QSS)
+
+    scr = None
+    if splash:
+        from .splash import SplashScreen
+        scr = SplashScreen()
+        scr.show()
+        scr.step(0.08, "Memuat tema dan font…")
+        scr.step(0.18, "Memuat modul grafik dan kontrol…")
+    from .main_window import MainWindow         # impor berat (pyqtgraph, numpy)
+    if scr:
+        scr.step(0.55, "Membangun antarmuka…")
     window = MainWindow(seed=seed, initial_mode=initial_mode)
-    window.show_fitted()
+    if scr:
+        scr.step(0.9, "Menyiapkan koneksi…")
+        scr.finish(window)
+    else:
+        window.show_fitted()
     return app.exec()

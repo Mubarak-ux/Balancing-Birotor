@@ -22,7 +22,7 @@ Menggunakan representasi visual 3D **Processing (P3D)** yang sangat ringan mengg
      - **Tombol Keyboard di Processing**: Klik jendela 3D dan tekan **[SPACE]**!
 5. **Perhitungan Metrik Respon Transien Otomatis**:
    - Menghitung otomatis: *Overshoot %*, *Rise Time*, *Settling Time*, *Steady-State Error*, dan *Peak Time*.
-6. **Launcher 1-Klik (`run_app.bat` / `run_app.py`)**:
+6. **Launcher 1-Klik (`launcher/run_app.bat` / `launcher/run_app.py`)**:
    - Membuka GUI Python (PySide6) saja saat start; viewer 3D Processing (termasuk mode Hardware fisik) dijalankan kapan saja lewat tombol **"Buka 3D"** di header GUI, atau otomatis dengan flag `--3d`.
 
 ---
@@ -47,24 +47,24 @@ pip install -r requirements.txt
 ## 🚀 Cara Menjalankan
 
 ### Cara 1: Menggunakan Launcher Otomatis (Paling Mudah)
-* **Dari File Explorer**: Double-click file `run_app.bat`.
+* **Dari File Explorer**: Double-click shortcut **GUI BP** di folder proyek (atau Desktop; dibuat dengan `launcher/buat_shortcut.ps1`, langsung layar penuh dan tanpa konsol), atau file `launcher/run_app.bat`.
 * **Dari Terminal VS Code / PowerShell**:
    ```powershell
-   .\run_app.bat
+   .\launcher\run_app.bat
    ```
-   *(atau `python run_app.py`)*
+   *(atau `python launcher/run_app.py`)*
 
    Launcher default **hanya membuka GUI Python** (mode Simulasi); viewer 3D
    Processing dibuka belakangan lewat tombol **"Buka 3D"** di header GUI.
    Untuk langsung menjalankan viewer 3D saat start, gunakan `--3d`. Untuk
-   langsung ke mode Hardware, jalankan `python run_app.py --mode hw`. Agar
+   langsung ke mode Hardware, jalankan `python launcher/run_app.py --mode hw`. Agar
    noise simulasi reproducible (mis. untuk laporan), tambahkan `--seed 42`.
 
 ### Cara 2: Manual
-1. Buka file `BalancingPropellerIMU/BalancingPropellerIMU.pde` di aplikasi Processing, lalu klik tombol **Play (Run ▶)**.
+1. Buka file `viewer3d/BalancingPropellerIMU/BalancingPropellerIMU.pde` di aplikasi Processing, lalu klik tombol **Play (Run ▶)**.
 2. Di terminal folder `VERSI 2`, jalankan:
    ```bash
-   python run_app.py
+   python launcher/run_app.py
    ```
    Viewer 3D juga bisa dijalankan dari GUI dengan tombol **"Buka 3D"**.
 
@@ -89,7 +89,8 @@ pip install -r requirements.txt
 ```
 VERSI 2/
 ├── app/                     # Kode Python (GUI & backend)
-├── BalancingPropellerIMU/   # Sketch Processing 3D viewer (.pde)
+├── viewer3d/
+│   └── BalancingPropellerIMU/   # Sketch Processing 3D viewer (.pde)
 ├── firmware/
 │   ├── esp32_pid/           # UTAMA: IMU + motor + F-max + PID
 │   ├── esp32_imu_test/      # diagnosa IMU
@@ -100,7 +101,8 @@ VERSI 2/
 │   ├── kontrol_pid/         # PID hardware: model, log uji
 │   └── assets/              # Foto tampak alat
 ├── data/                    # Rekaman CSV per sesi (tidak di-commit)
-├── run_app.py / run_app.bat # Launcher
+├── launcher/                # run_app.py/.bat, GUI_BP.pyw, buat_shortcut.ps1
+├── analisis/                # hitung k, tau, T_delay dari rekaman PID
 ├── requirements.txt
 ├── LICENSE
 └── README.md
@@ -113,9 +115,9 @@ VERSI 2/
 * **`app/processing_stream.py`**: Pengirim telemetri UDP port 9999 dengan validasi ACK dua arah.
 * **`app/metrics.py`**: Perhitungan metrik respon transien (*overshoot*, *rise time*, *settling time*, dll.).
 * **`app/widgets/beam_view.py`**: Widget animasi 2D penyeimbang balok.
-* **`app/widgets/controls.py`**: Komponen slider parameter, kartu metrik, dan tombol kontrol.
+* **`app/widgets/controls.py`**: Komponen slider parameter, kotak Ti/Td, kartu metrik, dan tombol kontrol.
 
-### Processing 3D Viewer (`BalancingPropellerIMU/`)
+### Processing 3D Viewer (`viewer3d/BalancingPropellerIMU/`)
 Sketch `.pde` dimodularisasi menjadi beberapa tab di aplikasi Processing:
 * **`BalancingPropellerIMU.pde`**: Setup utama, `draw()` loop, dan variabel state telemetri global.
 * **`NetworkIMU.pde`**: Protokol komunikasi UDP socket, parsing JSON, balasan ACK, dan pengiriman sinyal impuls.
@@ -125,6 +127,6 @@ Sketch `.pde` dimodularisasi menjadi beberapa tab di aplikasi Processing:
 
 ### Dokumentasi (`docs/`)
 * **[`docs/README.md`](docs/README.md)**: Indeks seluruh dokumen, data & parameter kunci.
-* **[`docs/pengukuran/`](docs/pengukuran/)**: Pengukuran fisik alat — [ringkasan](docs/pengukuran/ringkasan_pengukuran.md), [redaman b](docs/pengukuran/pengukuran_b.md), [gaya dorong F](docs/pengukuran/pengukuran_F.md).
-* **[`docs/kontrol_pid/`](docs/kontrol_pid/)**: PID di alat asli — [struktur & gain](docs/kontrol_pid/README.md), [identifikasi model](docs/kontrol_pid/identifikasi_model.md), [log uji](docs/kontrol_pid/log_uji_pid.md).
+* **[`docs/pengukuran/`](docs/pengukuran/)**: Pengukuran fisik alat. [Ringkasan](docs/pengukuran/ringkasan_pengukuran.md) (semua angka) dan [detail](docs/pengukuran/detail_pengukuran.md) (F, b, k, lag motor dan T_delay).
+* **[`docs/kontrol_pid/`](docs/kontrol_pid/)**: PID di alat asli. [Struktur & gain](docs/kontrol_pid/README.md), [tuning PID dependen](docs/kontrol_pid/tuning_pid_dependen.md), [log uji dan identifikasi](docs/kontrol_pid/log_dan_identifikasi.md).
 * **[`docs/versi2.md`](docs/versi2.md)**: Komparasi VERSI 1 vs VERSI 2.

@@ -1,7 +1,8 @@
 """Model fisika dan backend simulasi.
 
 Model disamakan dengan ALAT ASLI (identifikasi data PID 18-11-2026,
-docs/kontrol_pid/identifikasi_model.md) dan memakai hukum kontrol yang SAMA
+docs/kontrol_pid/log_dan_identifikasi.md; k, c0, tau, delay diperbarui dari
+pengukuran 23-11-2026, docs/pengukuran/detail_pengukuran.md, Bagian 3 dan 4) dan memakai hukum kontrol yang SAMA
 dengan firmware esp32_pid, supaya gain yang bagus di simulasi juga bagus di
 alat:
 
@@ -30,12 +31,12 @@ class Params:
     L = 0.25                 # m, poros ke pusat propeler (terukur)
     J0 = 0.0140              # kg.m^2, hitungan massa + geometri
     b = 0.033                # N.m.s/rad, redaman poros (uji ayunan)
-    k = -0.065               # N.m/rad, < 0: tidak stabil alami (identifikasi -0.054..-0.081)
+    k = -0.05                # N.m/rad, < 0: tidak stabil alami (PID tunak 23-11: -0.05, rentang -0.03..-0.07)
     k_neg_extra = -0.04      # N.m/rad tambahan di sisi sudut negatif (asimetri terukur)
-    c0 = 0.024               # N.m, torsi tetap (batang berat sebelah; butuh trim ~ -11 %)
+    c0 = 0.013               # N.m, torsi tetap (batang berat sebelah; butuh trim ~ -6 %, PID tunak 23-11)
     turb = 0.006             # N.m, std torsi turbulen acak (tiap 50 ms), dicocokkan ke goyangan alat
-    tau = 0.15               # s, lag motor + baling-baling (identifikasi 0.10-0.15)
-    delay = 0.04             # s, delay ESC + komunikasi (identifikasi 0.03-0.05)
+    tau = 0.16               # s, lag motor + baling-baling (fit 23-11: 0.15-0.19)
+    delay = 0.05             # s, delay komunikasi/IMU; + penahan ESC 50 Hz (~0.01 s) -> T_delay efektif ~0.06 (fit 23-11: 0.06-0.085)
     esc_dt = 0.02            # s, ESC membaca PWM 50 Hz
     KF, F0 = 0.1241, 0.316   # F(u) = KF*u - F0  [N], u = throttle %
     Fmin_pct = 8.0           # % throttle minimum kerja
@@ -60,7 +61,7 @@ class SimBackend:
     F1 = motor kiri, F2 = motor kanan. u > 0 menaikkan motor kanan -> theta naik.
     Beban ada di sisi kiri -> menarik theta ke arah positif."""
 
-    # Gain terpilih di alat asli (uji ke-7, docs/kontrol_pid/log_uji_pid.md).
+    # Gain terpilih di alat asli (uji ke-7, docs/kontrol_pid/log_dan_identifikasi.md).
     DEFAULT_GAINS = (3.0, 2.0, 1.0)   # %/deg, %/(deg.s), %/(deg/s)
 
     def __init__(self, seed=None):

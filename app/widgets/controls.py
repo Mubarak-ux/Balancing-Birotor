@@ -2,7 +2,7 @@
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..config import ACCENT, BORDER, CARD_ALT, INK, MUTED
+from ..config import ACCENT, AMBER, BORDER, CARD_ALT, INK, MUTED, TITLE_FONT
 
 Qt = QtCore.Qt
 
@@ -77,6 +77,78 @@ class Param(QtWidgets.QWidget):
         """Kunci/buka input: slider & spinbox dinonaktifkan, label tetap jelas."""
         self.sl.setEnabled(not locked)
         self.sb.setEnabled(not locked)
+
+
+class ParamBox(QtWidgets.QWidget):
+    """Satu baris parameter tanpa slider: label + kotak angka (+ opsi centang
+    "tanpa nilai" untuk Ti = tak hingga). Dipakai untuk Ti dan Td, yang jarang
+    diubah. Nilai yang diset lewat kode disimpan persis (tanpa pembulatan
+    tampilan), jadi mis. Td = 1/3 tetap memberi Kd = 1,000."""
+
+    changed = QtCore.Signal(float)
+
+    def __init__(self, name, lo, hi, val, step, unit="", dec=2, off_label=None):
+        super().__init__()
+        self.default = val
+        self._val = val
+        lay = QtWidgets.QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        lab = QtWidgets.QLabel(name)
+        lab.setObjectName("ParamLabel")
+        lab.setMinimumWidth(84)
+        lay.addWidget(lab)
+        lay.addStretch(1)
+        self.off = None
+        if off_label:
+            self.off = QtWidgets.QCheckBox(off_label)
+            self.off.toggled.connect(self._off_toggled)
+            lay.addWidget(self.off)
+        self.sb = QtWidgets.QDoubleSpinBox()
+        self.sb.setRange(lo, hi)
+        self.sb.setDecimals(dec)
+        self.sb.setSingleStep(step)
+        self.sb.setValue(val)
+        self.sb.setSuffix(" " + unit if unit else "")
+        self.sb.setFixedWidth(96)
+        self.sb.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.sb.valueChanged.connect(self._from_spin)
+        lay.addWidget(self.sb)
+
+    def _from_spin(self, v):
+        self._val = v
+        self.changed.emit(v)
+
+    def _off_toggled(self, on):
+        self.sb.setEnabled(not on and self._enabled)
+        self.changed.emit(self._val)
+
+    _enabled = True
+
+    def is_off(self):
+        return bool(self.off and self.off.isChecked())
+
+    def value(self):
+        return self._val
+
+    def set_value_silent(self, v):
+        self._val = v
+        self.sb.blockSignals(True)
+        self.sb.setValue(v)
+        self.sb.blockSignals(False)
+
+    def set_off_silent(self, off):
+        if self.off:
+            self.off.blockSignals(True)
+            self.off.setChecked(off)
+            self.off.blockSignals(False)
+            self.sb.setEnabled(not off and self._enabled)
+
+    def set_locked(self, locked):
+        self._enabled = not locked
+        self.sb.setEnabled(not locked and not self.is_off())
+        if self.off:
+            self.off.setEnabled(not locked)
 
 
 # ----------------------------------------------------------------------------
@@ -184,6 +256,45 @@ class Readout(QtWidgets.QFrame):
     def set(self, text, color=None):
         self.val.setText(text)
         self.val.setStyleSheet(f"color:{color};" if color else "")
+
+
+class GainBox(QtWidgets.QFrame):
+    """Kotak pembacaan besar (hanya baca) untuk gain turunan, mis. Ki dan Kd.
+    Judul kecil + satuan, angka besar di bawahnya. ``set(teks, batas=False)``:
+    angka jadi kuning bila nilainya dibatasi."""
+
+    def __init__(self, name, unit, tooltip=None):
+        super().__init__()
+        if tooltip:
+            self.setToolTip(tooltip)
+        self.setObjectName("GainBox")
+        self.setStyleSheet(f"QFrame#GainBox {{ background:{CARD_ALT}; border:1px solid {BORDER}; }}"
+                           f"QFrame#GainBox QLabel {{ border:none; background:transparent; }}")
+        lay = QtWidgets.QVBoxLayout(self)
+        lay.setContentsMargins(12, 7, 12, 8)
+        lay.setSpacing(0)
+        head = QtWidgets.QHBoxLayout()
+        head.setSpacing(6)
+        t = QtWidgets.QLabel(name)
+        t.setStyleSheet(f"font-family:{TITLE_FONT}; font-size:12px; font-weight:700; color:{INK};")
+        u = QtWidgets.QLabel(unit)
+        u.setStyleSheet(f"font-size:10px; color:{MUTED};")
+        head.addWidget(t)
+        head.addStretch(1)
+        head.addWidget(u)
+        lay.addLayout(head)
+        self.val = QtWidgets.QLabel("—")
+        self.val.setStyleSheet(self._style(False))
+        lay.addWidget(self.val)
+
+    @staticmethod
+    def _style(limit):
+        return (f"font-family:{TITLE_FONT}; font-size:24px; font-weight:700;"
+                f" color:{AMBER if limit else INK};")
+
+    def set(self, text, limit=False):
+        self.val.setText(text)
+        self.val.setStyleSheet(self._style(limit))
 
 
 class Metric(QtWidgets.QFrame):
