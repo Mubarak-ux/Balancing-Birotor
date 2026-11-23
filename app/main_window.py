@@ -370,7 +370,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.p1.setLabel("left", "Sudut \u03b8", "\u00b0")
         self.p1.setLabel("bottom", "Waktu", "s")
         self._make_legend(self.p1)
-        self.c_meas = self._curve(self.p1, pen=pg.mkPen("#B9BCB6", width=1), name="IMU mentah")
+        self.c_meas = self._curve(self.p1, pen=pg.mkPen("#BCC9D8", width=1), name="IMU mentah")
         self.c_th = self._curve(self.p1, pen=pg.mkPen(INK, width=2), name="\u03b8 aktual")
         self.c_sp = self._curve(self.p1, pen=pg.mkPen(ACCENT, width=1.6, style=Qt.DashLine),
                                 name="Setpoint")
@@ -380,7 +380,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # band toleransi settling
         self.band = pg.LinearRegionItem(values=(0, 0), orientation="horizontal",
                                         movable=False,
-                                        brush=pg.mkBrush(217, 72, 15, 22),
+                                        brush=pg.mkBrush(3, 105, 161, 22),
                                         pen=pg.mkPen(ACCENT, width=0))
         self.band.setZValue(-10)
         self.band.setVisible(False)
@@ -397,13 +397,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.c_pt = self._curve(self.p3, pen=pg.mkPen(INK, width=1.8), name="P")
         self.c_it = self._curve(self.p3, pen=pg.mkPen(GREEN, width=1.8), name="I")
         self.c_dt = self._curve(self.p3, pen=pg.mkPen(PURPLE, width=1.8), name="D")
-        self.c_ut = self._curve(self.p3, pen=pg.mkPen("#8A94A3", width=1.4, style=Qt.DashLine),
+        self.c_ut = self._curve(self.p3, pen=pg.mkPen("#8DA0B5", width=1.4, style=Qt.DashLine),
                                 name="u total")
 
         # ---------- Tab: Error & kecepatan sudut ----------
         self.p4 = pg.PlotWidget(background=PLOT_BG)
         self.p4.setLabel("left", "Error e = sp \u2212 \u03b8", "\u00b0")
-        self.p4.addLine(y=0, pen=pg.mkPen("#B7BFC9", width=1))
+        self.p4.addLine(y=0, pen=pg.mkPen("#C9D5E2", width=1))
         self.p4.setXLink(self.p1)
         self.c_err = self._curve(self.p4, pen=pg.mkPen(RED, width=1.8))
 

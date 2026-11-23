@@ -4,7 +4,7 @@ import sys
 
 from PySide6 import QtGui, QtWidgets
 
-from .config import BG, CARD, TEXT
+from .config import ACCENT, BG, CARD, TEXT
 from .main_window import MainWindow
 from .theme import QSS
 
@@ -29,9 +29,9 @@ def _light_palette():
     pal.setColor(QtGui.QPalette.Button, QtGui.QColor(CARD))
     pal.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(TEXT))
     pal.setColor(QtGui.QPalette.BrightText, QtGui.QColor("#ffffff"))
-    pal.setColor(QtGui.QPalette.Highlight, QtGui.QColor("#2F6FED"))
+    pal.setColor(QtGui.QPalette.Highlight, QtGui.QColor(ACCENT))
     pal.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor("#ffffff"))
-    pal.setColor(QtGui.QPalette.PlaceholderText, QtGui.QColor("#98A2B3"))
+    pal.setColor(QtGui.QPalette.PlaceholderText, QtGui.QColor("#94A3B8"))
     return pal
 
 

@@ -2,7 +2,7 @@
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..config import ACCENT, BORDER, CARD_ALT
+from ..config import ACCENT, BORDER, CARD_ALT, INK, MUTED
 
 Qt = QtCore.Qt
 
@@ -199,10 +199,10 @@ class Metric(QtWidgets.QFrame):
         lay.setContentsMargins(9, 5, 9, 6)
         lay.setSpacing(0)
         t = QtWidgets.QLabel(title.upper())
-        t.setStyleSheet("border:none; font-size:9px; font-weight:700; color:#6A6F75;")
+        t.setStyleSheet(f"border:none; font-size:9px; font-weight:700; color:{MUTED};")
         self.val = QtWidgets.QLabel("—")
-        self.val.setStyleSheet("border:none; font-family:'Consolas'; font-size:15px;"
-                               " font-weight:700; color:#16191D;")
+        self.val.setStyleSheet(f"border:none; font-family:'Consolas'; font-size:15px;"
+                               f" font-weight:700; color:{INK};")
         lay.addWidget(t)
         lay.addWidget(self.val)
 

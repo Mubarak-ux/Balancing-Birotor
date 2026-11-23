@@ -63,7 +63,7 @@ QDoubleSpinBox, QLineEdit, QComboBox {{
 QDoubleSpinBox {{ font-family: '{MONO}'; font-size: 11px; }}
 QDoubleSpinBox:focus, QLineEdit:focus, QComboBox:focus {{ border: 1px solid {INK}; }}
 QDoubleSpinBox:disabled, QLineEdit:disabled, QComboBox:disabled {{
-    color: #A3A7AB; background: {CARD_ALT};
+    color: #94A3B8; background: {CARD_ALT};
 }}
 QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{ width: 14px; border: none; background: transparent; }}
 QComboBox::drop-down {{ border: none; width: 18px; }}
@@ -79,7 +79,7 @@ QSlider::handle:horizontal {{
 }}
 QSlider::handle:horizontal:hover {{ background: {ACCENT}; }}
 QSlider::sub-page:horizontal:disabled {{ background: {BORDER}; }}
-QSlider::handle:horizontal:disabled {{ background: #B9BCB6; }}
+QSlider::handle:horizontal:disabled {{ background: #BCC9D8; }}
 
 QCheckBox {{ spacing: 7px; }}
 QCheckBox::indicator {{ width: 12px; height: 12px; border: 1px solid {INK}; background: {CARD}; }}
@@ -90,7 +90,7 @@ QProgressBar {{
     background: {CARD_ALT}; border: 1px solid {BORDER}; border-radius: 0;
     font-family: '{MONO}'; font-size: 10px; color: {INK}; text-align: center;
 }}
-QProgressBar::chunk {{ background: #F2B48F; }}
+QProgressBar::chunk {{ background: #A9C3DC; }}
 
 /* ---------- tombol ---------- */
 QPushButton {{
@@ -109,7 +109,7 @@ QPushButton#Hero:hover {{ background: {ACCENT_DARK}; }}
 QPushButton#Danger {{ background: {CARD}; border: 1px solid {RED}; color: {RED}; }}
 QPushButton#Danger:hover {{ background: {RED}; color: #FFFFFF; }}
 QPushButton#HeroStop {{
-    background: {RED}; border: 1px solid #8F1D1D; color: #FFFFFF;
+    background: {RED}; border: 1px solid #8E241B; color: #FFFFFF;
     font-size: 13px; font-weight: 700; padding: 10px 12px;
 }}
 QPushButton#Warning {{ background: {CARD}; border: 1px solid {ACCENT}; color: {ACCENT_DARK}; }}
@@ -121,7 +121,7 @@ QPushButton#Lock {{
 QPushButton#Lock:checked {{ background: {AMBER}; border-color: {AMBER}; color: #FFFFFF; }}
 QPushButton:disabled, QPushButton#Primary:disabled, QPushButton#Danger:disabled,
 QPushButton#Warning:disabled, QPushButton#Hero:disabled {{
-    background: {CARD_ALT}; border: 1px solid {BORDER}; color: #A3A7AB;
+    background: {CARD_ALT}; border: 1px solid {BORDER}; color: #94A3B8;
 }}
 QToolTip {{
     background: {INK}; color: {SURFACE}; border: none;
@@ -132,12 +132,12 @@ QToolTip {{
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
-QScrollBar::handle:vertical {{ background: #BFC2BC; min-height: 28px; }}
+QScrollBar::handle:vertical {{ background: #BCC9D8; min-height: 28px; }}
 QScrollBar::handle:vertical:hover {{ background: {MUTED}; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
 QScrollBar:horizontal {{ background: transparent; height: 8px; }}
-QScrollBar::handle:horizontal {{ background: #BFC2BC; min-width: 28px; }}
+QScrollBar::handle:horizontal {{ background: #BCC9D8; min-width: 28px; }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
 
 QSplitter::handle {{ background: {BG}; }}

@@ -4,7 +4,7 @@ import math
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..config import ACCENT, BG, BORDER, GREEN, MUTED, RED
+from ..config import ACCENT, BG, BORDER, CARD_ALT, GREEN, INK, MUTED, RED
 
 Qt = QtCore.Qt
 
@@ -60,7 +60,7 @@ class BeamView(QtWidgets.QWidget):
 
         # Grid halus (kertas milimeter)
         grid_sz = 35
-        p.setPen(QtGui.QPen(QtGui.QColor("#EEEFEB"), 1))
+        p.setPen(QtGui.QPen(QtGui.QColor("#EEF3F9"), 1))
         for x in range(0, W, grid_sz):
             p.drawLine(x, 0, x, Hd)
         for y in range(0, Hd, grid_sz):
@@ -82,7 +82,7 @@ class BeamView(QtWidgets.QWidget):
         base_w = 0.54 * S
         base_h = 0.016 * S
         p.setPen(Qt.NoPen)
-        p.setBrush(QtGui.QColor("#5B6068"))
+        p.setBrush(QtGui.QColor("#5C6B7F"))
         p.drawRect(QtCore.QRectF(cx - base_w / 2, ground_y - base_h, base_w, base_h))
 
         # 2. TIANG HITAM
@@ -96,7 +96,7 @@ class BeamView(QtWidgets.QWidget):
             QtCore.QPointF(cx + pillar_w / 2, cy + cut),
             QtCore.QPointF(cx + pillar_w / 2, ground_y - base_h),
         ])
-        p.setBrush(QtGui.QColor("#111317"))
+        p.setBrush(QtGui.QColor("#101B2A"))
         p.drawPolygon(poly_pillar)
 
         # 2b. SKALA SUDUT (busur derajat) + BATAS MEKANIK
@@ -120,7 +120,7 @@ class BeamView(QtWidgets.QWidget):
         beam_thick = 0.014 * S
         beam_ext = max(0.0, self.BEAM_HALF - L) * S  # ujung batang (0.27 m) melewati motor (L)
         p.setPen(Qt.NoPen)
-        p.setBrush(QtGui.QColor("#181b20"))
+        p.setBrush(QtGui.QColor("#172436"))
         p.drawRect(QtCore.QRectF(-L * S - beam_ext, -beam_thick / 2, 2 * (L * S + beam_ext), beam_thick))
 
 
@@ -231,7 +231,7 @@ class BeamView(QtWidgets.QWidget):
 
     def _draw_footer(self, p, W, H, top):
         p.setPen(Qt.NoPen)
-        p.setBrush(QtGui.QColor("#F4F4F1"))
+        p.setBrush(QtGui.QColor(CARD_ALT))
         p.drawRect(QtCore.QRectF(0, top, W, H - top))
         p.setPen(QtGui.QPen(QtGui.QColor(BORDER), 1))
         p.drawLine(QtCore.QPointF(0, top), QtCore.QPointF(W, top))
@@ -239,9 +239,9 @@ class BeamView(QtWidgets.QWidget):
         # Angka utama (sudut, setpoint, gaya) sudah ada di strip atas;
         # footer ini hanya keterangan sekunder.
         cols = [
-            ("SUDUT \u03b8", f"{self.th:+.2f}\u00b0", "#16191D"),
+            ("SUDUT \u03b8", f"{self.th:+.2f}\u00b0", INK),
             ("SETPOINT", f"{self.sp:+.2f}\u00b0", ACCENT),
-            ("GAYA KIRI / KANAN", f"{self.F1:.2f} / {self.F2:.2f} N", "#16191D"),
+            ("GAYA KIRI / KANAN", f"{self.F1:.2f} / {self.F2:.2f} N", INK),
             ("BEBAN", f"{self.m * 1000:.0f} g @ {self.x * 100:.0f} cm" if self.m > 0 else "tanpa beban",
              RED if self.m > 0 else MUTED),
         ]
@@ -255,7 +255,7 @@ class BeamView(QtWidgets.QWidget):
             if i > 0:
                 p.setPen(QtGui.QPen(QtGui.QColor(BORDER), 1))
                 p.drawLine(QtCore.QPointF(x0, top + 12), QtCore.QPointF(x0, H - 12))
-            p.setPen(QtGui.QColor("#7A8695"))
+            p.setPen(QtGui.QColor(MUTED))
             p.setFont(fl)
             p.drawText(QtCore.QRectF(x0 + 16, top + 8, cw - 24, 12),
                        Qt.AlignLeft | Qt.AlignVCenter, label)

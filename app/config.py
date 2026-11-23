@@ -1,27 +1,27 @@
 """Palet warna aplikasi.
 
 Arah desain: panel instrumen laboratorium (Swiss / fungsional).
-- Latar kertas abu hangat, panel putih, garis tipis, sudut tegas.
-- SATU warna aksen (oranye keselamatan) untuk setpoint & aksi utama.
+- Latar biru langit lembut, panel putih, garis tipis, sudut tegas.
+- SATU warna aksen (azure) untuk setpoint & aksi utama.
 - Warna lain hanya bermakna status: hijau = aktif/aman, kuning = peringatan,
-  merah = bahaya/stop. Biru hanya untuk suku D di grafik.
+  merah = bahaya/stop. Violet hanya untuk suku D di grafik.
 """
 
-BG = "#E9EAE6"          # latar jendela (kertas abu hangat)
-SURFACE = "#F4F4F1"     # header & strip
+BG = "#F2F6FB"          # latar jendela (biru langit lembut)
+SURFACE = "#F8FAFD"     # header & strip
 CARD = "#FFFFFF"        # panel
-CARD_ALT = "#F4F4F1"    # baris selang-seling / tile
+CARD_ALT = "#F4F8FC"    # baris selang-seling / tile
 PLOT_BG = "#FFFFFF"
-BORDER = "#CDCFC9"      # garis tipis
-RULE = "#16191D"        # garis tegas (judul seksi)
-TEXT = "#16191D"        # tinta
-INK = "#16191D"
-MUTED = "#6A6F75"
-ACCENT = "#D9480F"      # oranye keselamatan: setpoint & aksi utama
-ACCENT_DARK = "#A6380B"
-AMBER = "#B7791F"
-AMBER_SOFT = "#FFF3D6"
-GREEN = "#2B8A3E"
-RED = "#C92A2A"
-PURPLE = "#1C7ED6"      # (nama lama dipertahankan) biru: suku D / laju sudut
+BORDER = "#D7E1EC"      # garis tipis
+RULE = "#16263A"        # garis tegas (judul seksi)
+TEXT = "#16263A"        # tinta
+INK = "#16263A"
+MUTED = "#64748B"
+ACCENT = "#0369A1"      # azure: setpoint & aksi utama
+ACCENT_DARK = "#075985"
+AMBER = "#B45309"
+AMBER_SOFT = "#FDF3E3"
+GREEN = "#15803D"
+RED = "#C0392B"
+PURPLE = "#7C3AED"      # violet: suku D / laju sudut
 MONO = "Consolas"
