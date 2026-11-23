@@ -419,9 +419,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.p7.setLabel("bottom", "Waktu", "s")
         self.p7.setXLink(self.p1)
         self._make_legend(self.p7)
-        self.c_thr1 = self._curve(self.p7, pen=pg.mkPen(INK, width=1.8), name="Kiri (CCW)")
+        self.c_thr1 = self._curve(self.p7, pen=pg.mkPen(INK, width=1.8), name="Kiri (CW)")
         self.c_thr2 = self._curve(self.p7, pen=pg.mkPen(PURPLE, width=1.8, style=Qt.DashLine),
-                                  name="Kanan (CW)")
+                                  name="Kanan (CCW)")
         # garis batas kerja PID: F-min 8 % dan F-max (hanya bermakna di hardware)
         self.ln_fmin = self.p7.addLine(y=8.0, pen=pg.mkPen(MUTED, width=1, style=Qt.DotLine))
         self.ln_fmax = self.p7.addLine(y=15.0, pen=pg.mkPen(RED, width=1, style=Qt.DotLine))
@@ -818,7 +818,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lb_motor = []
         self.bar_motor = []
         r = 1
-        for name in ("Kiri (CCW, IO26)", "Kanan (CW, IO25)"):
+        for name in ("Kiri (CW, IO26)", "Kanan (CCW, IO25)"):
             lb = QtWidgets.QLabel(f"{name}: 0 %")
             lb.setObjectName("ParamLabel")
             sl = QtWidgets.QSlider(Qt.Horizontal)

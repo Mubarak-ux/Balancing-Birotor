@@ -2,8 +2,8 @@
  * ============================================================================
  * ESP32 - TES MOTOR SAJA (tanpa IMU)  |  2x A2212 + ESC Readytosky 30A
  * ============================================================================
- * Motor kiri  (CCW) sinyal -> GPIO26
- * Motor kanan (CW)  sinyal -> GPIO25
+ * Motor kiri  (CW)  sinyal -> GPIO26
+ * Motor kanan (CCW) sinyal -> GPIO25
  * GND sinyal ESC -> GND ESP32 (WAJIB). Daya ESC dari LiPo, bukan dari ESP32.
  *
  * Buka Serial Monitor 115200, pilih "Newline", lalu ketik perintah:
@@ -111,7 +111,7 @@ void setup() {
   delay(300);
   Serial.println();
   Serial.println("ESP32 MOTOR ONLY (tanpa IMU)");
-  Serial.printf("Kiri CCW = IO%d, kanan CW = IO%d. Arming %d ms, jangan sentuh...\n",
+  Serial.printf("Kiri CW = IO%d, kanan CCW = IO%d. Arming %d ms, jangan sentuh...\n",
                 PIN_MOTOR_L, PIN_MOTOR_R, ESC_ARM_MS);
   delay(ESC_ARM_MS);
   Serial.println("Siap. Contoh: M,10,0  (kiri 10%)  |  x = stop  |  H/L = kalibrasi ESC");

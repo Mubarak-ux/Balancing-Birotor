@@ -33,15 +33,15 @@ masih asumsi atau belum diukur ditandai jelas.
 |---|---|---|
 | Motor | 2× A2212 6T 2200 KV, brushless | 53 g/buah (timbang) |
 | ESC | 2× Readytosky 30 A | 30 g/buah (timbang). Dikalibrasi 1000–2000 µs |
-| Propeller | 1045 (10 × 4,5 inci), 1 CW + 1 CCW | massa diasumsikan 10 g/buah |
+| Propeller | 1045 (10 × 4,5 inci), 1 CW + 1 CCW (1045R di sisi kiri, CW) | massa diasumsikan 10 g/buah |
 | Sensor | IMU GY-521 (MPU6050), tepat di poros | d = 0 |
 | Mikrokontroler | ESP32 DevKit V1 | menggantikan Arduino Uno |
 | Daya motor | power supply ~11–12 V (setara LiPo 3S) | ESC mendeteksi 3S (3 beep) |
 
 | Sinyal | Pin ESP32 |
 |---|---|
-| ESC motor kiri (CCW) | GPIO 26 |
-| ESC motor kanan (CW) | GPIO 25 |
+| ESC motor kiri (CW) | GPIO 26 |
+| ESC motor kanan (CCW) | GPIO 25 |
 | IMU SDA / SCL | GPIO 21 / GPIO 22 (I2C 400 kHz) |
 | LED status | GPIO 2 |
 

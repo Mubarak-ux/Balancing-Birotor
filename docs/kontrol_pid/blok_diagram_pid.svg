@@ -154,8 +154,8 @@
   <rect class="hw" x="1320" y="200" width="110" height="120" rx="6"/>
   <text class="t b" x="1375" y="238">ESC 30A +</text>
   <text class="t b" x="1375" y="256">A2212 + baling</text>
-  <text class="t s" x="1375" y="280">kiri CCW · IO26</text>
-  <text class="t s" x="1375" y="296">kanan CW · IO25</text>
+  <text class="t s" x="1375" y="280">kiri CW · IO26</text>
+  <text class="t s" x="1375" y="296">kanan CCW · IO25</text>
   <path class="w" d="M1430,235 H1468" marker-end="url(#ar)"/>
   <path class="w" d="M1430,285 H1468" marker-end="url(#ar)"/>
   <text class="lbl" x="1449" y="228">F_L</text>

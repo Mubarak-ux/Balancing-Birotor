@@ -6,7 +6,7 @@
  * mengirim setpoint + gain lewat heartbeat 10 Hz.
  *
  * KONVENSI (sama dengan simulasi):
- *   sudut + = sisi KANAN naik. Motor kiri = F1 (IO26, CCW), kanan = F2 (IO25, CW).
+ *   sudut + = sisi KANAN naik. Motor kiri = F1 (IO26, CW), kanan = F2 (IO25, CCW).
  *   u > 0 -> motor kanan naik, kiri turun.
  *   u (-100..100 %) -> throttle:  kiri  = BIAS - d,  kanan = BIAS + d
  *                      d = u/100 * R,  R = (Fmax - 8) / 2
@@ -44,8 +44,8 @@
 #define I2C_HZ         400000
 #define MPU_ADDR       0x68
 
-#define PIN_MOTOR_L    26          // motor kiri  CCW
-#define PIN_MOTOR_R    25          // motor kanan CW
+#define PIN_MOTOR_L    26          // motor kiri  CW 
+#define PIN_MOTOR_R    25          // motor kanan CCW
 #define LED_PIN        2
 #define LED_OK_MS      500
 #define LED_ERR_MS     100
@@ -453,7 +453,7 @@ void setup() {
 
   escTaskRunning = true;
   xTaskCreatePinnedToCore(escTask, "esc", 4096, nullptr, 2, nullptr, 0);
-  Serial.printf("Kiri CCW = IO%d, kanan CW = IO%d. Rentang %.0f..%.0f %%, bias = tengah rentang.\n",
+  Serial.printf("Kiri CW = IO%d, kanan CCW = IO%d. Rentang %.0f..%.0f %%, bias = tengah rentang.\n",
                 PIN_MOTOR_L, PIN_MOTOR_R, MIN_THROTTLE_PCT, fmaxPct);
 
   Wire.begin(I2C_SDA, I2C_SCL);
