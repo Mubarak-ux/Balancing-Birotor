@@ -365,9 +365,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.LIMIT_DEG = math.degrees(self.be.p.stop)
         lim = self.view.LIMIT_DEG
 
-        # ---------- Tab: Response (angle + PID output) ----------
+        # ---------- Tab: Response (sudut) ----------
         self.p1 = pg.PlotWidget(background=PLOT_BG)
         self.p1.setLabel("left", "Sudut \u03b8", "\u00b0")
+        self.p1.setLabel("bottom", "Waktu", "s")
         self._make_legend(self.p1)
         self.c_meas = self._curve(self.p1, pen=pg.mkPen("#B9BCB6", width=1), name="IMU mentah")
         self.c_th = self._curve(self.p1, pen=pg.mkPen(INK, width=2), name="\u03b8 aktual")
@@ -385,13 +386,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.band.setVisible(False)
         self.p1.addItem(self.band)
         self._set_angle_range(0.0)      # tanpa data -> rentang minimum +-25 deg
-
-        self.p2 = pg.PlotWidget(background=PLOT_BG)
-        self.p2.setLabel("left", "Keluaran PID u", "%")
-        self.p2.setLabel("bottom", "Waktu", "s")
-        self.p2.setYRange(-110, 110)
-        self.p2.setXLink(self.p1)
-        self.c_u = self._curve(self.p2, pen=pg.mkPen(GREEN, width=1.8))
 
         # ---------- Tab: PID term breakdown ----------
         self.p3 = pg.PlotWidget(background=PLOT_BG)
@@ -432,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ln_fmin = self.p7.addLine(y=8.0, pen=pg.mkPen(MUTED, width=1, style=Qt.DotLine))
         self.ln_fmax = self.p7.addLine(y=15.0, pen=pg.mkPen(RED, width=1, style=Qt.DotLine))
 
-        plots = (self.p1, self.p2, self.p3, self.p4, self.p5, self.p7)
+        plots = (self.p1, self.p3, self.p4, self.p5, self.p7)
         for pl in plots:
             self._style_plot(pl)
         self.event_markers = [self._make_event_marker(pl) for pl in plots]
@@ -448,7 +442,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         tabs = QtWidgets.QTabWidget()
         tabs.setDocumentMode(True)
-        tabs.addTab(stack(self.p1, self.p2), "Respons")
+        tabs.addTab(stack(self.p1), "Respons")
         tabs.addTab(stack(self.p3), "Suku PID")
         tabs.addTab(stack(self.p4, self.p5), "Error && \u03c9")
         tabs.addTab(self._build_tuning_log_tab(), "Log tuning")
@@ -625,7 +619,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         grid = QtWidgets.QGridLayout()
         grid.setSpacing(7)
-        self.btn_pause = QtWidgets.QPushButton("\u23f8  Pause")
+        self.btn_pause = QtWidgets.QPushButton("Pause")
         self.btn_pause.setObjectName("Primary")
         self.btn_pause.setToolTip("Pause / lanjutkan simulasi (Space)")
         self.btn_pause.clicked.connect(self.toggle_pause)
@@ -1581,7 +1575,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def toggle_pause(self):
         self.paused = not self.paused
         self._t_last = None
-        self.btn_pause.setText("\u25b6  Continue" if self.paused else "\u23f8  Pause")
+        self.btn_pause.setText("Continue" if self.paused else "Pause")
 
     def reset(self):
         self.stop_scenarios("Dihentikan (reset)" if self.scn else None)
@@ -1603,7 +1597,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._acc = 0.0
         self._t_last = None
         self.paused = False
-        self.btn_pause.setText("\u23f8  Pause")
+        self.btn_pause.setText("Pause")
         self._refresh_step_btn()
 
     # ------------------------------------------------------------------
@@ -1707,7 +1701,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.c_th.setData(x, a[m, COL_TH])
         self.c_meas.setData(x, a[m, COL_MEAS])
         self.c_sp.setData(x, a[m, COL_SP])
-        self.c_u.setData(x, a[m, COL_U])
         self.c_pt.setData(x, a[m, COL_P])
         self.c_it.setData(x, a[m, COL_I])
         self.c_dt.setData(x, a[m, COL_D])

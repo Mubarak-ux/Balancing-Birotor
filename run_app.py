@@ -52,13 +52,9 @@ def main():
         from app.processing_launcher import start_processing
         ok, msg = start_processing(editor_only=args.editor)
         print(("[3D] " if ok else "[PERINGATAN] ") + msg)
-    else:
-        print("[3D] Viewer 3D tidak dibuka otomatis. "
-              "Klik tombol 'Buka 3D' di GUI kapan saja.")
 
     print()
-    print("  Mode dapat diubah kapan saja di GUI pada kartu 'Sumber Data' (Simulasi / Hardware).")
-    print("  Jika mode Hardware: pilih port ESP32 -> Connect (firmware: firmware/esp32_pid).")
+    print("Loading ---Membuka GUI Balancing Propeller---")
     print()
     return run_gui(initial_mode=args.mode, seed=args.seed)
 
