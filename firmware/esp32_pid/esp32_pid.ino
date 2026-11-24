@@ -47,6 +47,10 @@
 #define PIN_MOTOR_L    26          // motor kiri  CW 
 #define PIN_MOTOR_R    25          // motor kanan CCW
 #define LED_PIN        2
+// Limit switch NC ke GND: tidak tertekan = tersambung GND = LOW (pullup internal).
+// Tertekan ATAU kabel putus = HIGH -> dilaporkan "aktif". Belum dipakai di logika kontrol.
+#define PIN_LIMIT_CCW  32
+#define PIN_LIMIT_CW   33
 #define LED_OK_MS      500
 #define LED_ERR_MS     100
 
@@ -435,6 +439,8 @@ void calibrateGyro() {
 void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
+  pinMode(PIN_LIMIT_CCW, INPUT_PULLUP);
+  pinMode(PIN_LIMIT_CW,  INPUT_PULLUP);
 
   ESC_ATTACH(PIN_MOTOR_L, 0);
   ESC_ATTACH(PIN_MOTOR_R, 1);
@@ -467,7 +473,7 @@ void setup() {
   calibrateGyro();
   while (millis() - t0 < ESC_ARM_MS) delay(10);
   Serial.println("ESC siap (armed).");
-  Serial.println("PID dikendalikan dari GUI. Format: *,sudut_lain,SUDUT,laju,ax,ay,az,suhu,loop_hz,pid_on,u,kiri%,kanan%,P,I,D,#");
+  Serial.println("PID dikendalikan dari GUI. Format: *,sudut_lain,SUDUT,laju,ax,ay,az,suhu,loop_hz,pid_on,u,kiri%,kanan%,P,I,D,limit,#");
 
   lastSampleUs = lastOutUs = micros();
   rateT0 = lastImuOkMs = millis();
@@ -521,8 +527,10 @@ void loop() {
 
   if ((uint32_t)(now - lastOutUs) >= (1000000UL / OUTPUT_HZ)) {
     lastOutUs = now;
-    Serial.printf("*,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.1f,%.0f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,#\n",
+    // kolom 16: bit0 = limit CCW (IO32) aktif, bit1 = limit CW (IO33) aktif
+    int lim = (digitalRead(PIN_LIMIT_CCW) ? 1 : 0) | (digitalRead(PIN_LIMIT_CW) ? 2 : 0);
+    Serial.printf("*,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.1f,%.0f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,#\n",
                   otherDeg, beamDeg, beamRate, ax_g, ay_g, az_g, tempC, loopHz,
-                  pidOn ? 1 : 0, uOut, thrL, thrR, pTerm, iTerm, dTerm);
+                  pidOn ? 1 : 0, uOut, thrL, thrR, pTerm, iTerm, dTerm, lim);
   }
 }

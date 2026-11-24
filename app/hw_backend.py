@@ -143,6 +143,9 @@ class HardwareBackend:
         self._rec_t0 = 0.0
         self.rec_error = None     # pesan jika rekaman berhenti karena gagal tulis
 
+        self.limit_ccw = None    # True = tertekan/putus, False = bebas, None = tak ada data
+        self.limit_cw = None
+
         self._t0 = time.monotonic()
         self.reset()
 
@@ -171,6 +174,7 @@ class HardwareBackend:
             self._fields = None
             self._recent.clear()
             self._last_rx = 0.0
+        self.limit_ccw = self.limit_cw = None
         self.bad_lines = self.good_lines = 0
         self.other_lines.clear()
         self._stop.clear()
@@ -500,6 +504,12 @@ class HardwareBackend:
                                                      sg * vals[14])
         else:
             self.pid_active = False
+        # kolom 16 (opsional, firmware lama tidak punya): bit0 = limit CCW, bit1 = limit CW
+        if len(vals) >= 16:
+            bits = int(vals[15])
+            self.limit_ccw, self.limit_cw = bool(bits & 1), bool(bits & 2)
+        else:
+            self.limit_ccw = self.limit_cw = None     # tidak ada data
         return self.sample()
 
     def sample(self):

@@ -837,6 +837,20 @@ class MainWindow(QtWidgets.QMainWindow):
         sec_sensor.add(self.chk_load, 2)
         adv.addWidget(sec_sensor)
 
+        # ---------------- seksi: limit switch (hanya indikator, belum masuk logika) ----------------
+        sec_lim = Section("Limit switch", expanded=True)
+        self.lbl_lim_ccw = QtWidgets.QLabel()
+        self.lbl_lim_cw = QtWidgets.QLabel()
+        for lb in (self.lbl_lim_ccw, self.lbl_lim_cw):
+            lb.setAlignment(Qt.AlignCenter)
+            lb.setMinimumHeight(28)
+        self.lbl_lim_ccw.setToolTip("IO32, NC ke GND. Tertekan atau kabel putus = AKTIF.")
+        self.lbl_lim_cw.setToolTip("IO33, NC ke GND. Tertekan atau kabel putus = AKTIF.")
+        sec_lim.add(self.lbl_lim_ccw, 0, 0, 1, 2)
+        sec_lim.add(self.lbl_lim_cw, 0, 2, 1, 2)
+        adv.addWidget(sec_lim)
+        self._update_limit_labels()
+
         # ---------------- seksi: batas motor F-max ----------------
         sec_fmax = Section("Batas motor (F-max)")
         self.fmax_unlocked = False
@@ -1387,8 +1401,31 @@ class MainWindow(QtWidgets.QMainWindow):
         os.makedirs(DATA_DIR, exist_ok=True)
         QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(DATA_DIR))
 
+    def _update_limit_labels(self):
+        hw = self.hw
+        live = hw.is_open and hw.receiving
+        # kotak di tatakan, di bawah motor (dicek di alat):
+        # CCW (IO32) = kanan, CW (IO33) = kiri.
+        # Tampilan dibalik ("Balik arah") -> sisi ikut tertukar.
+        ccw = bool(live and hw.limit_ccw)
+        cw = bool(live and hw.limit_cw)
+        self.view.show_limits = self.mode == "hw"
+        self.view.set_limits(*((ccw, cw) if hw.invert else (cw, ccw)))
+        for lb, name, st in ((self.lbl_lim_ccw, "CCW · IO32", hw.limit_ccw),
+                             (self.lbl_lim_cw, "CW · IO33", hw.limit_cw)):
+            if not live or st is None:
+                txt, fg, bg = f"{name}: —", MUTED, "transparent"
+            elif st:
+                txt, fg, bg = f"{name}: AKTIF", "#FFFFFF", RED
+            else:
+                txt, fg, bg = f"{name}: bebas", "#FFFFFF", GREEN
+            lb.setText(txt)
+            lb.setStyleSheet(f"color: {fg}; background: {bg}; border: 1px solid {BORDER}; "
+                             "border-radius: 6px; font-weight: 600;")
+
     def _update_hw_status(self):
         hw = self.hw
+        self._update_limit_labels()
         self.btn_conn.setText("Disconnect" if hw.is_open else "Connect")
         self.btn_calib.setEnabled(hw.is_open and not self._calibrating)
         if not HAVE_SERIAL:

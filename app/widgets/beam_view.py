@@ -19,6 +19,7 @@ class BeamView(QtWidgets.QWidget):
     show_load = True     # kolom BEBAN di footer (False di mode hardware)
     BEAM_HALF = 0.27     # m, setengah panjang batang 54 cm (terukur)
     PROP_RADIUS = 0.127  # m, propeler 1045 = 10 inci -> jari-jari 5 inci
+    SWITCH_M = 0.022     # m, sisi kotak indikator limit switch (visual)
 
     def __init__(self):
         super().__init__()
@@ -28,6 +29,15 @@ class BeamView(QtWidgets.QWidget):
         self.th = self.sp = self.F1 = self.F2 = 0.0
         self.m, self.x, self.Fmax, self.L = 0.0, 0.10, 8.0, 0.25
         self.p1r = self.p2r = 0.0
+        # indikator limit switch di tatakan (hanya mode hardware).
+        # True = tertekan (merah), False/None = bebas/tak ada data (abu-abu).
+        self.show_limits = False
+        self.limit_left = self.limit_right = None
+
+    def set_limits(self, left, right):
+        if (left, right) != (self.limit_left, self.limit_right):
+            self.limit_left, self.limit_right = left, right
+            self.update()
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
@@ -74,16 +84,34 @@ class BeamView(QtWidgets.QWidget):
         cy = Hd * 0.5
         L = self.L
 
-        ground_y = cy + 0.165 * S
+        # Tinggi tower dihitung supaya di batas mekanik (LIMIT_DEG) sisi bawah
+        # batang tepat menyentuh atas limit switch (tidak menembus).
+        # Switch berdiri di tatakan, tepat di bawah motor saat batang di batas.
+        lim = math.radians(self.LIMIT_DEG)
+        base_h_m, sw_m, thick_m = 0.016, self.SWITCH_M, 0.014
+        sw_x_m = L * math.cos(lim)                       # tengah switch (horizontal)
+        pivot_h_m = (base_h_m + sw_m
+                     + (sw_x_m + sw_m / 2) * math.tan(lim)   # tepi luar switch
+                     + (thick_m / 2) / math.cos(lim))
+        ground_y = cy + pivot_h_m * S
         p.setPen(QtGui.QPen(QtGui.QColor(BORDER), 1.2))
         p.drawLine(QtCore.QPointF(0, ground_y), QtCore.QPointF(W, ground_y))
 
         # 1. BASE
         base_w = 0.54 * S
-        base_h = 0.016 * S
+        base_h = base_h_m * S
         p.setPen(Qt.NoPen)
         p.setBrush(QtGui.QColor("#5C6B7F"))
         p.drawRect(QtCore.QRectF(cx - base_w / 2, ground_y - base_h, base_w, base_h))
+
+        # indikator limit switch: kotak kecil di tatakan, di bawah motor
+        if self.show_limits:
+            sq = sw_m * S
+            for sx, hit in ((-1, self.limit_left), (1, self.limit_right)):
+                x0 = cx + sx * sw_x_m * S - sq / 2
+                p.setPen(QtGui.QPen(QtGui.QColor("#8E2A1F" if hit else "#6B7684"), 1))
+                p.setBrush(QtGui.QColor(RED if hit else "#B6BFCB"))
+                p.drawRect(QtCore.QRectF(x0, ground_y - base_h - sq, sq, sq))
 
         # 2. TIANG HITAM
         pillar_w = 0.09 * S
