@@ -31,6 +31,9 @@
  *   - Sudut |theta| > CUTOFF_DEG -> PID mati, motor 0.
  *   - Data IMU tidak masuk > IMU_STALE_MS -> PID mati, motor 0.
  *   - PID hanya boleh dinyalakan jika |theta| <= START_MAX_DEG.
+ *   - Limit switch (IO32/IO33) tertekan atau kabel putus -> PID mati, motor 0.
+ *     PID baru bisa dinyalakan lagi setelah GUI mengirim OFF (P,0) dan
+ *     kedua limit switch bebas.
  *   - PID dijepit 0..Fmax (Fmax <= 20 %). Tes manual (M) dijepit 0..100 %.
  * ============================================================================
  */
@@ -48,9 +51,10 @@
 #define PIN_MOTOR_R    25          // motor kanan CCW
 #define LED_PIN        2
 // Limit switch NC ke GND: tidak tertekan = tersambung GND = LOW (pullup internal).
-// Tertekan ATAU kabel putus = HIGH -> dilaporkan "aktif". Belum dipakai di logika kontrol.
+// Tertekan ATAU kabel putus = HIGH -> "aktif" -> PID mati & motor 0 (fail-safe).
 #define PIN_LIMIT_CCW  32
 #define PIN_LIMIT_CW   33
+#define LIMIT_DEBOUNCE 3           // sampel berturut-turut (500 Hz -> 6 ms) agar noise ESC tak memicu
 #define LED_OK_MS      500
 #define LED_ERR_MS     100
 
@@ -123,6 +127,9 @@ uint8_t cmdLen = 0;
 
 // PID
 bool  pidOn = false;
+uint8_t limitBits = 0;              // bit0 = CCW, bit1 = CW (sudah di-debounce)
+uint8_t limitCnt  = 0;              // hitungan sampel berturut-turut limit aktif
+bool  limitLatched = false;         // true = PID dimatikan limit; tunggu P,0 dari GUI
 float spRaw = 0, kp = 0, ki = 0, kd = 0;
 float dirS = 1.0f;
 float cutoffDeg = CUTOFF_DEG;       // batas mati sudut (diatur GUI, 29..33 deg)
@@ -217,6 +224,17 @@ void handleCommand(const char *s) {
       }
       if (n >= 9) trimU = constrain(tr, -60.0f, 60.0f);   // trim / feedforward
       if (on) {
+        if (!pidOn && (limitLatched || limitBits)) {
+          // jangan nyala lagi sendiri setelah limit switch memicu
+          static uint32_t lastLimMsgMs = 0;
+          if (millis() - lastLimMsgMs > 1000) {
+            lastLimMsgMs = millis();
+            Serial.println(limitBits ? "PID ditolak: limit switch tertekan."
+                                     : "PID ditolak: matikan PID dulu setelah limit switch.");
+          }
+          lastCmdMs = millis();
+          return;
+        }
         if (!pidOn) {
           // batas sudut awal hanya berlaku jika batas mati sudut AKTIF
           float startMax = min(START_MAX_DEG, cutoffDeg - 1.0f);
@@ -240,10 +258,10 @@ void handleCommand(const char *s) {
         ki = constrain(b, 0.0f, KI_MAX);
         kd = constrain(c, 0.0f, KD_MAX);
         dirS = (d < 0) ? -1.0f : 1.0f;
-      } else if (pidOn) {
-        pidOff("diminta GUI");
       } else {
-        setMotors(0, 0);
+        limitLatched = false;               // GUI sudah OFF -> boleh nyala lagi
+        if (pidOn) pidOff("diminta GUI");
+        else setMotors(0, 0);
       }
       lastCmdMs = millis();
     }
@@ -490,6 +508,18 @@ void loop() {
   lastSampleUs = now;
   if (dt > 0.1f) dt = 0.1f;
 
+  // limit switch: dicek sebelum IMU supaya tetap bekerja walau IMU bermasalah
+  uint8_t raw = (digitalRead(PIN_LIMIT_CCW) ? 1 : 0) | (digitalRead(PIN_LIMIT_CW) ? 2 : 0);
+  if (raw) { if (limitCnt < LIMIT_DEBOUNCE) limitCnt++; }
+  else limitCnt = 0;
+  limitBits = (limitCnt >= LIMIT_DEBOUNCE) ? raw : 0;
+  if (limitBits && pidOn) {
+    limitLatched = true;
+    pidOff((limitBits & 1) ? ((limitBits & 2) ? "limit switch CCW+CW tertekan"
+                                              : "limit switch CCW (IO32) tertekan")
+                           : "limit switch CW (IO33) tertekan");
+  }
+
   if (!readImu()) {
     i2cErrors++;
     lastErrMs = millis() | 1;
@@ -527,8 +557,8 @@ void loop() {
 
   if ((uint32_t)(now - lastOutUs) >= (1000000UL / OUTPUT_HZ)) {
     lastOutUs = now;
-    // kolom 16: bit0 = limit CCW (IO32) aktif, bit1 = limit CW (IO33) aktif
-    int lim = (digitalRead(PIN_LIMIT_CCW) ? 1 : 0) | (digitalRead(PIN_LIMIT_CW) ? 2 : 0);
+    // kolom 16: bit0 = limit CCW (IO32) aktif, bit1 = limit CW (IO33) aktif (debounced)
+    int lim = limitBits;
     Serial.printf("*,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.1f,%.0f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,#\n",
                   otherDeg, beamDeg, beamRate, ax_g, ay_g, az_g, tempC, loopHz,
                   pidOn ? 1 : 0, uOut, thrL, thrR, pTerm, iTerm, dTerm, lim);

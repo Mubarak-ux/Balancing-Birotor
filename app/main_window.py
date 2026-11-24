@@ -93,6 +93,52 @@ METRIC_COLORS = {
 }
 
 
+class PanelScroll(QtWidgets.QScrollArea):
+    """Scroll area panel kanan: hanya gulir vertikal.
+
+    Lebar minimumnya selalu mengikuti isi panel (dihitung ulang setiap tata
+    letak isi berubah, mis. kartu hardware muncul, tombol TURN ON -> TURN OFF,
+    teks status bertambah). Jadi isi tidak pernah lebih lebar dari area
+    tampilnya dan scrollbar horizontal tidak muncul."""
+
+    MIN_W, MAX_W = 340, 560
+
+    def __init__(self):
+        super().__init__()
+        self.setWidgetResizable(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setMinimumWidth(self.MIN_W)
+        self.setMaximumWidth(self.MAX_W)
+        self._sync_pending = False
+
+    def setWidget(self, w):
+        super().setWidget(w)
+        w.installEventFilter(self)
+        self.sync_width()
+
+    def eventFilter(self, obj, ev):
+        if obj is self.widget() and ev.type() == QtCore.QEvent.LayoutRequest \
+                and not self._sync_pending:
+            self._sync_pending = True
+            QtCore.QTimer.singleShot(0, self.sync_width)
+        return super().eventFilter(obj, ev)
+
+    def sync_width(self):
+        self._sync_pending = False
+        w = self.widget()
+        if w is None:
+            return
+        # ruang scrollbar vertikal selalu disisakan (bisa muncul kapan saja)
+        need = (w.minimumSizeHint().width()
+                + self.verticalScrollBar().sizeHint().width()
+                + 2 * self.frameWidth() + 2)
+        # dibatasi MAX_W: satu widget yang kelewat lebar tidak boleh
+        # mendorong panel keluar layar (mis. saat jendela fullscreen)
+        self.setMinimumWidth(min(self.MAX_W, max(self.MIN_W, need)))
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded if need > self.MAX_W else Qt.ScrollBarAlwaysOff)
+
+
 # ----------------------------------------------------------------------------
 # JENDELA UTAMA
 # ----------------------------------------------------------------------------
@@ -571,13 +617,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # PANEL KANAN: kontrol
     # ------------------------------------------------------------------
     def _build_panel(self):
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        # Fallback: jika ada konten yang tetap lebih lebar, bisa digulir
-        # (bukan terpotong diam-diam).
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setMinimumWidth(340)
-        scroll.setMaximumWidth(560)
+        # lebar mengikuti isi -> tanpa scrollbar horizontal (lihat PanelScroll)
+        scroll = PanelScroll()
 
         panel = QtWidgets.QWidget()
         pv = QtWidgets.QVBoxLayout(panel)
@@ -704,9 +745,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         pv.addStretch(1)
         scroll.setWidget(panel)
-        # lebar minimum mengikuti isi panel supaya tidak ada yang terpotong
-        sb_w = scroll.verticalScrollBar().sizeHint().width()
-        scroll.setMinimumWidth(max(340, panel.minimumSizeHint().width() + sb_w + 4))
+        self.panel_scroll = scroll
         return scroll
 
     # ------------------------------------------------------------------
@@ -762,6 +801,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hw_status.setObjectName("EventLabel")
         self.hw_status.setWordWrap(True)
         self.hw_status.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        # jangan biarkan teks status (mis. pesan ESP32 panjang tanpa spasi)
+        # menentukan lebar minimum panel kanan
+        self.hw_status.setMinimumWidth(1)
+        self.hw_status.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                                     QtWidgets.QSizePolicy.Preferred)
         g.addWidget(self.hw_status, 2, 0, 1, 4)
         hv.addWidget(conn)
 
@@ -794,18 +838,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                         "integral. Pakai saat PID aktif dan batang sudah tenang.")
         self.btn_trim_from_i.clicked.connect(self._trim_from_integral)
         sec_pid.add(self.btn_trim_from_i, 1)
-        self.cut = Param("Batas mati", 29.0, 33.0, 32.0, 0.5, "°", 1)
-        self.cut.setToolTip("Jika |sudut| melebihi nilai ini saat PID aktif, ESP32\n"
-                            "mematikan PID dan kedua motor. Batas mekanik rig ±33°.")
-        self.cut.changed.connect(self._on_cutoff_changed)
-        sec_pid.add(self.cut, 2)
-        self.btn_cut_off = QtWidgets.QPushButton("Batas mati: AKTIF")
-        self.btn_cut_off.setToolTip("Matikan/hidupkan batas mati sudut. Saat dimatikan,\n"
-                                    "PID tidak berhenti walau batang menyentuh batas mekanik.")
-        self.btn_cut_off.clicked.connect(self._toggle_cutoff)
-        self._style_cutoff_btn(False)           # default: batas mati MATI
-        self.cut.setEnabled(False)
-        sec_pid.add(self.btn_cut_off, 3)
+        # "Batas mati" sudut (software) dihapus dari GUI: batas fisik kini
+        # ditangani limit switch hardware. GUI selalu mengirim cutoff_on = 0.
         adv.addWidget(sec_pid)
 
         # ---------------- seksi: sensor ----------------
@@ -1172,39 +1206,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hw.send_pid(True)          # kirim trim baru dulu,
         self.hw.reset_integral()        # lalu nolkan integral -> u total tetap sama
 
-    # --- batas mati sudut ---
-    def _on_cutoff_changed(self, v):
-        self.hw.cutoff_deg = float(v)
-        if self.pid_run:
-            self.hw.send_pid(True)
-
-    def _toggle_cutoff(self):
-        if self.hw.cutoff_on:               # mematikan batas -> minta konfirmasi
-            if not confirm(
-                    self, "Matikan batas mati?",
-                    "PID tidak akan berhenti saat batang menyentuh batas mekanik ±33°.",
-                    points=("Failsafe heartbeat & pengaman IMU tetap aktif",
-                            "Gunakan Hentikan PID bila perlu"),
-                    level="danger", ok_text="Matikan"):
-                return
-            self.hw.cutoff_on = False
-        else:
-            self.hw.cutoff_on = True
-        on = self.hw.cutoff_on
-        self._style_cutoff_btn(on)
-        self.cut.setEnabled(on)
-        if self.pid_run:
-            self.hw.send_pid(True)
-
-    def _style_cutoff_btn(self, on):
-        """Dua kondisi warna (palet yang sudah ada): AKTIF = hijau penuh
-        (pengaman bekerja), MATI = kuning penuh (peringatan)."""
-        color, hover = (GREEN, "#237032") if on else (AMBER, "#946218")
-        self.btn_cut_off.setText("Batas mati: AKTIF" if on else "Batas mati: MATI")
-        self.btn_cut_off.setStyleSheet(
-            f"QPushButton {{ background:{color}; border:1px solid {color}; color:#FFFFFF; }}"
-            f"QPushButton:hover {{ background:{hover}; border-color:{hover}; }}")
-
     # --- kontrol PID hardware ---
     def _toggle_pid_run(self):
         self._set_pid_run(not self.pid_run, ask=True)
@@ -1260,11 +1261,19 @@ class MainWindow(QtWidgets.QMainWindow):
         yang mudah dipahami."""
         lines = list(self.hw.other_lines)
         joined = " | ".join(lines)
+        # limit switch dicek paling dulu: setelah PID mati karena limit, heartbeat
+        # GUI yang masih terkirim memunculkan "PID ditolak", jangan sampai menutupi
+        if any("limit switch" in l for l in lines):
+            l = next(l for l in lines if "limit switch" in l)
+            return (f"PID dihentikan karena limit switch.\n\n“{l}”\n\n"
+                    "Batang menyentuh batas fisik, motor sudah dimatikan. "
+                    "Cek arah motor (coba “Balik arah”), kurangi Kp, atau naikkan Kd. "
+                    "Jika switch tidak sedang tertekan, cek kabelnya "
+                    "(NC: kabel putus terbaca sebagai tertekan).")
         if any("ditolak" in l for l in lines):
             l = next(l for l in reversed(lines) if "ditolak" in l)
             return (f"ESP32 menolak menyalakan PID.\n\n“{l}”\n\n"
-                    "Tahan batang lebih mendekati datar lalu coba lagi, atau "
-                    "matikan “Batas mati” untuk mengabaikan batas sudut awal.")
+                    "Tahan batang lebih mendekati datar lalu coba lagi.")
         if any("PID MATI" in l for l in lines):
             l = next(l for l in reversed(lines) if "PID MATI" in l)
             hint = ""
@@ -1423,6 +1432,13 @@ class MainWindow(QtWidgets.QMainWindow):
             lb.setStyleSheet(f"color: {fg}; background: {bg}; border: 1px solid {BORDER}; "
                              "border-radius: 6px; font-weight: 600;")
 
+    @staticmethod
+    def _clean_msg(text, limit=90):
+        """Rapikan pesan teks ESP32 untuk label status: byte sampah (noise
+        serial saat connect) diganti '·', dan dipotong agar tidak kepanjangan."""
+        s = "".join(c if " " <= c <= "~" else "·" for c in text)
+        return s if len(s) <= limit else s[:limit] + "…"
+
     def _update_hw_status(self):
         hw = self.hw
         self._update_limit_labels()
@@ -1444,7 +1460,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if hw.bad_lines:
             state += f"\nBaris rusak: {hw.bad_lines}"
         if hw.other_lines:
-            state += f"\nPesan ESP32: {hw.other_lines[-1]}"
+            state += f"\nPesan ESP32: {self._clean_msg(hw.other_lines[-1])}"
         if hw.error:
             state += f"\n{hw.error}"
         self.hw_status.setText(state)

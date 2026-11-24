@@ -104,8 +104,10 @@ class HardwareBackend:
         self.sp = 0.0
         self.load_m, self.load_x = 0.0, 0.10           # keterangan beban fisik
         self.noise = 0.0
-        self.cutoff_deg = 32.0   # batas mati motor (|sudut| > ini -> PID mati), 29..33
-        self.cutoff_on = False   # default MATI; False = batas mati sudut dimatikan
+        # Batas mati sudut (software) tidak lagi diatur dari GUI; batas fisik
+        # ditangani limit switch. Nilai tetap dikirim agar protokol firmware sama.
+        self.cutoff_deg = 32.0
+        self.cutoff_on = False
         self.trim = 0.0          # feedforward u (%, bingkai tampilan) untuk melawan
                                  # torsi tetap (batang berat sebelah / thrust beda)
 
@@ -272,8 +274,12 @@ class HardwareBackend:
                 vals = parse_line(text)
                 now = time.monotonic()
                 if vals is None:
-                    if text.startswith("*"):
-                        self.bad_lines += 1        # baris data terpotong
+                    # baris data terpotong, atau noise serial (byte sampah saat
+                    # ESP32 reset/connect, bisa bercampur potongan data "*,")
+                    # -> hitung sebagai baris rusak, jangan tampil sebagai pesan
+                    if (text.startswith("*") or "*," in text
+                            or any(not (" " <= c <= "~") for c in text)):
+                        self.bad_lines += 1
                     else:
                         self.other_lines.append(text)   # pesan teks firmware
                     self._record(now, None, text)

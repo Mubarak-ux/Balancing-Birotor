@@ -29,3 +29,6 @@ build/
 
 # Hasil kompilasi Arduino/ESP32 (dibuat ulang setiap compile/upload)
 firmware/**/build/
+
+# Cache Arduino IDE (berisi path & port COM lokal)
+.arduino-sketch-vault.json
