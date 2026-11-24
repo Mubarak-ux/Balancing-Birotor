@@ -29,6 +29,8 @@ class NoticeDialog(QtWidgets.QDialog):
             QDialog#Notice {{ background: {CARD}; border: 2px solid {INK}; }}
             QLabel {{ font-family: {SUB_FONT}; }}
             QLabel#Tag {{ color: {color}; font-size: 10px; font-weight: 700; }}
+            QLabel#TagBig {{ color: {color}; font-family: {TITLE_FONT};
+                             font-size: 22px; font-weight: 800; }}
             QLabel#Title {{ color: {INK}; font-family: {TITLE_FONT};
                             font-size: 17px; font-weight: 700; }}
             QLabel#Msg {{ color: {INK}; font-size: 12px; }}
@@ -58,12 +60,14 @@ class NoticeDialog(QtWidgets.QDialog):
         col.addLayout(body)
 
         lbl_tag = QtWidgets.QLabel(tag)
-        lbl_tag.setObjectName("Tag")
-        lbl_title = QtWidgets.QLabel(title)
-        lbl_title.setObjectName("Title")
-        lbl_title.setWordWrap(True)
+        # tanpa judul -> label tingkat (mis. BAHAYA) diperbesar jadi judulnya
+        lbl_tag.setObjectName("Tag" if title else "TagBig")
         body.addWidget(lbl_tag)
-        body.addWidget(lbl_title)
+        if title:
+            lbl_title = QtWidgets.QLabel(title)
+            lbl_title.setObjectName("Title")
+            lbl_title.setWordWrap(True)
+            body.addWidget(lbl_title)
 
         if message:
             lbl_msg = QtWidgets.QLabel(message)

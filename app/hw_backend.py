@@ -171,6 +171,7 @@ class HardwareBackend:
         ser.open()
         self.ser = ser
         self.port = port
+        self.opened_at = time.monotonic()   # dipakai GUI: jeda sebelum "menunggu data"
         self.error = None
         with self._lock:
             self._fields = None

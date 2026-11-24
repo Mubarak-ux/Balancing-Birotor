@@ -3,6 +3,7 @@
 import collections
 import math
 import os
+import re
 import threading
 import time
 
@@ -676,6 +677,7 @@ class MainWindow(QtWidgets.QMainWindow):
         boxes.addWidget(self.box_kd, 1)
         controller.body.addLayout(boxes)
         controller.body.addWidget(self.lb_dep)
+        controller.body.addWidget(self.lim_box)      # indikator limit switch (hardware)
         self._refresh_dependen()
         pv.addWidget(controller)
 
@@ -871,18 +873,24 @@ class MainWindow(QtWidgets.QMainWindow):
         sec_sensor.add(self.chk_load, 2)
         adv.addWidget(sec_sensor)
 
-        # ---------------- seksi: limit switch (hanya indikator, belum masuk logika) ----------------
-        sec_lim = Section("Limit switch", expanded=True)
+        # ---------------- indikator limit switch ----------------
+        # ditempatkan di bagian bawah kartu "Kontrol PID" oleh _build_panel
+        # (hanya tampil di mode hardware). Limit aktif -> ESP32 mematikan PID.
+        self.lim_box = QtWidgets.QWidget()
+        lim_l = QtWidgets.QHBoxLayout(self.lim_box)
+        lim_l.setContentsMargins(0, 4, 0, 0)
+        lim_l.setSpacing(8)
         self.lbl_lim_ccw = QtWidgets.QLabel()
         self.lbl_lim_cw = QtWidgets.QLabel()
-        for lb in (self.lbl_lim_ccw, self.lbl_lim_cw):
+        for lb in (self.lbl_lim_cw, self.lbl_lim_ccw):     # CW kiri, CCW kanan
             lb.setAlignment(Qt.AlignCenter)
             lb.setMinimumHeight(28)
-        self.lbl_lim_ccw.setToolTip("IO32, NC ke GND. Tertekan atau kabel putus = AKTIF.")
-        self.lbl_lim_cw.setToolTip("IO33, NC ke GND. Tertekan atau kabel putus = AKTIF.")
-        sec_lim.add(self.lbl_lim_ccw, 0, 0, 1, 2)
-        sec_lim.add(self.lbl_lim_cw, 0, 2, 1, 2)
-        adv.addWidget(sec_lim)
+            lim_l.addWidget(lb, 1)
+        tip = ("Limit switch {}. Biru = bebas, biru tua = tertekan / kabel putus,\n"
+               "abu-abu = belum ada data. Saat tertekan, ESP32 mematikan PID dan motor.")
+        self.lbl_lim_ccw.setToolTip(tip.format("CCW (IO32)"))
+        self.lbl_lim_cw.setToolTip(tip.format("CW (IO33)"))
+        self.lim_box.setVisible(False)
         self._update_limit_labels()
 
         # ---------------- seksi: batas motor F-max ----------------
@@ -1098,9 +1106,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _pid_warn_text(self):
         bias, R, tau = self._pid_authority(self.fmax.value())
-        msg = f"Motor langsung berputar di sekitar {bias:.1f} % (±{R:.1f} %)."
-        pts = ["Jauhkan tangan dari baling-baling",
-               "Ki harus > 0 agar sudut mencapai setpoint"]
+        msg = "<b>Jauhkan tangan dari baling-baling!</b>"   # label QLabel -> HTML tebal
+        pts = []
         if self.fmax.value() < 12.0:
             pts.append(f"F-max {self.fmax.value():.1f} % terlalu rendah "
                        f"(torsi ≈ {tau:.3f} N·m), disarankan 15 %")
@@ -1259,47 +1266,37 @@ class MainWindow(QtWidgets.QMainWindow):
     def _pid_failure_reason(self):
         """Terjemahkan pesan teks ESP32 sejak PID dinyalakan menjadi alasan
         yang mudah dipahami."""
-        lines = list(self.hw.other_lines)
-        joined = " | ".join(lines)
-        # limit switch dicek paling dulu: setelah PID mati karena limit, heartbeat
-        # GUI yang masih terkirim memunculkan "PID ditolak", jangan sampai menutupi
-        if any("limit switch" in l for l in lines):
-            l = next(l for l in lines if "limit switch" in l)
-            return (f"PID dihentikan karena limit switch.\n\n“{l}”\n\n"
-                    "Batang menyentuh batas fisik, motor sudah dimatikan. "
-                    "Cek arah motor (coba “Balik arah”), kurangi Kp, atau naikkan Kd. "
-                    "Jika switch tidak sedang tertekan, cek kabelnya "
-                    "(NC: kabel putus terbaca sebagai tertekan).")
-        if any("ditolak" in l for l in lines):
-            l = next(l for l in reversed(lines) if "ditolak" in l)
-            return (f"ESP32 menolak menyalakan PID.\n\n“{l}”\n\n"
-                    "Tahan batang lebih mendekati datar lalu coba lagi.")
-        if any("PID MATI" in l for l in lines):
-            l = next(l for l in reversed(lines) if "PID MATI" in l)
-            hint = ""
-            if "batas mati" in l or "batas keselamatan" in l:
-                hint = ("\n\nSudut batang melewati batas mati. Cek arah motor "
-                        "(coba “Balik arah”), kurangi Kp, atau naikkan Kd.")
-            elif "IMU" in l:
-                hint = "\n\nCek kabel IMU (SDA/SCL) dan sumber daya."
-            return f"ESP32 mematikan PID.\n\n“{l}”{hint}"
-        if any("FAILSAFE" in l for l in lines):
-            return ("Failsafe ESP32 aktif: perintah dari GUI tidak sampai tepat "
-                    "waktu (>0,5 detik).\n\nCek kabel USB dan pastikan GUI tidak "
-                    "macet (Serial Monitor harus ditutup).")
-        if any("I2C" in l or "IMU" in l for l in lines):
-            return f"Masalah pembacaan IMU:\n\n“{lines[-1]}”"
-        if lines:
-            return f"ESP32 tidak mengaktifkan PID. Pesan terakhir:\n\n“{lines[-1]}”"
-        return ("ESP32 tidak mengaktifkan PID dan tidak mengirim pesan apa pun.\n\n"
-                "Kemungkinan firmware yang ter-upload bukan versi terbaru "
-                "esp32_pid. Upload ulang esp32_pid lalu coba lagi.")
+        # Pesan singkat (maks. 2 baris). Baris info firmware ("Diag:", "F-max =",
+        # "Info:", "PID AKTIF", dst.) diabaikan, tidak pernah ditampilkan.
+        hw = self.hw
+        lines = list(hw.other_lines)
+
+        def has(*keys):
+            return any(k in l for l in lines for k in keys)
+
+        # 1) limit switch: dari pesan ESP32 ATAU status telemetri (cadangan bila
+        #    baris pesan hilang di serial). Dicek paling dulu.
+        lim_msg = next((l for l in lines if "limit switch" in l), "")
+        ccw = bool(re.search(r"\bCCW\b", lim_msg)) or bool(hw.limit_ccw)
+        cw = bool(re.search(r"\bCW\b", lim_msg)) or bool(hw.limit_cw)
+        if lim_msg or ccw or cw:
+            side = "CW + CCW" if (cw and ccw) else "CW" if cw else "CCW" if ccw else ""
+            return f"Limit switch {side} tertekan.\nMotor dimatikan.".replace("  ", " ")
+        if has("data IMU", "I2C", "IMU tidak"):
+            return "Data IMU hilang.\nCek kabel IMU."
+        if has("FAILSAFE"):
+            return "Koneksi GUI terputus.\nCek kabel USB."
+        if has("batas mati", "batas awal"):
+            return "Sudut batang terlalu besar.\nMotor dimatikan."
+        if not lines:
+            return "ESP32 tidak merespons.\nUpload ulang firmware esp32_pid."
+        return "PID berhenti.\nMotor dimatikan."
 
     def _pid_failed(self):
         reason = self._pid_failure_reason()
-        self.hw.error = "PID tidak aktif di ESP32 (alasan: lihat kotak pesan)."
         self._set_pid_run(False)
-        notify(self, "PID tidak aktif", reason, level="danger",
+        # tanpa judul: cukup label BAHAYA besar + pesan singkat
+        notify(self, "", reason, level="danger",
                blocking=False)          # tidak memblokir timer GUI
 
     def _motor_heartbeat(self):
@@ -1420,50 +1417,40 @@ class MainWindow(QtWidgets.QMainWindow):
         cw = bool(live and hw.limit_cw)
         self.view.show_limits = self.mode == "hw"
         self.view.set_limits(*((ccw, cw) if hw.invert else (cw, ccw)))
-        for lb, name, st in ((self.lbl_lim_ccw, "CCW · IO32", hw.limit_ccw),
-                             (self.lbl_lim_cw, "CW · IO33", hw.limit_cw)):
+        for lb, name, st in ((self.lbl_lim_ccw, "CCW", hw.limit_ccw),
+                             (self.lbl_lim_cw, "CW", hw.limit_cw)):
+            # teks hanya nama sisi; status ditunjukkan warna saja
             if not live or st is None:
-                txt, fg, bg = f"{name}: —", MUTED, "transparent"
+                fg, bg = MUTED, "transparent"       # belum ada data
             elif st:
-                txt, fg, bg = f"{name}: AKTIF", "#FFFFFF", RED
+                fg, bg = "#FFFFFF", INK             # tertekan: biru tua (seperti Connect)
             else:
-                txt, fg, bg = f"{name}: bebas", "#FFFFFF", GREEN
-            lb.setText(txt)
+                fg, bg = "#FFFFFF", ACCENT          # tidak tertekan: biru
+            lb.setText(name)
             lb.setStyleSheet(f"color: {fg}; background: {bg}; border: 1px solid {BORDER}; "
                              "border-radius: 6px; font-weight: 600;")
-
-    @staticmethod
-    def _clean_msg(text, limit=90):
-        """Rapikan pesan teks ESP32 untuk label status: byte sampah (noise
-        serial saat connect) diganti '·', dan dipotong agar tidak kepanjangan."""
-        s = "".join(c if " " <= c <= "~" else "·" for c in text)
-        return s if len(s) <= limit else s[:limit] + "…"
 
     def _update_hw_status(self):
         hw = self.hw
         self._update_limit_labels()
         self.btn_conn.setText("Disconnect" if hw.is_open else "Connect")
         self.btn_calib.setEnabled(hw.is_open and not self._calibrating)
+        # Label status hanya untuk masalah (info normal seperti laju data,
+        # baris rusak, pesan ESP32 tidak ditampilkan; status ada di chip atas).
+        msgs = []
         if not HAVE_SERIAL:
-            state = "pyserial belum terpasang \u2192 pip install pyserial"
-        elif not hw.is_open:
-            state = "Tidak terhubung"
-        elif hw.receiving:
-            raw = hw.raw_angle()
-            raw_s = "\u2014" if raw is None else f"{raw:+.2f}\u00b0"
-            state = (f"Data masuk {hw.rate_hz:.0f} Hz dari {hw.port}  \u00b7  "
-                     f"sudut ESP32 {raw_s}  \u00b7  offset {hw.offset:+.2f}\u00b0")
-        else:
-            state = (f"{hw.port} terbuka, menunggu data\u2026  (pastikan firmware "
-                     "esp32_pid (atau esp32_imu_test) sudah di-upload & baud 115200; tekan EN "
-                     "di board jika perlu)")
-        if hw.bad_lines:
-            state += f"\nBaris rusak: {hw.bad_lines}"
-        if hw.other_lines:
-            state += f"\nPesan ESP32: {self._clean_msg(hw.other_lines[-1])}"
+            msgs.append("pyserial belum terpasang \u2192 pip install pyserial")
+        elif (hw.is_open and not hw.receiving
+              and time.monotonic() - getattr(hw, "opened_at", 0.0) > 2.0):
+            # jeda 2 s: data pertama butuh sesaat setelah Connect, jangan
+            # sampai pesan ini berkedip sebentar lalu hilang
+            msgs.append(f"{hw.port} terbuka, menunggu data\u2026  (pastikan firmware "
+                        "esp32_pid sudah di-upload & baud 115200; tekan EN di board "
+                        "jika perlu)")
         if hw.error:
-            state += f"\n{hw.error}"
-        self.hw_status.setText(state)
+            msgs.append(hw.error)
+        self.hw_status.setText("\n".join(msgs))
+        self.hw_status.setVisible(bool(msgs))
         self._refresh_chip()
 
         # status rekam
@@ -1541,6 +1528,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hw_box.setVisible(hw)
         self.btn_pid_run.setVisible(hw)
         self.power_card.setVisible(hw)
+        self.lim_box.setVisible(hw)
         # skenario otomatis hanya untuk simulasi
         if hw and self.tabs.currentIndex() == self._scn_tab_idx:
             self.tabs.setCurrentIndex(0)
