@@ -1,6 +1,7 @@
 """Jendela utama aplikasi."""
 
 import collections
+import json
 import math
 import os
 import re
@@ -18,11 +19,12 @@ from .metrics import (COL_D, COL_F1, COL_F2, COL_I, COL_MEAS, COL_P, COL_SP,
                       COL_T, COL_TH, COL_U, COL_W, DASH, METRIC_KEYS, compute_metrics)
 from .hw_backend import (DATA_DIR, HAVE_SERIAL, HardwareBackend, list_ports,
                          looks_like_esp)
+from . import presets
 from .processing_launcher import start_processing
 from .sim_backend import SimBackend
 from .widgets.beam_view import BeamView
 from .widgets.controls import Card, GainBox, Metric, Param, ParamBox, Readout, Section
-from .widgets.dialogs import confirm, notify
+from .widgets.dialogs import ask_text, confirm, notify
 
 Qt = QtCore.Qt
 
@@ -177,6 +179,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._last_rec_msg = ""
         self.paused = False
         self.pid_locked = True     # gain PID terkunci agar tidak tergeser tak sengaja
+        # Memori gain per mode (Kp, Ti atau None, Td), dipulihkan saat GUI dibuka lagi.
+        self._settings = QtCore.QSettings("BalancingBirotor", "GUI")
+        self._gain_mem = {m: self._read_gain_memory(m) for m in ("sim", "hw")}
+        self._user_presets, self._preset_err = presets.load()
+        # preset bawaan yang disembunyikan (pilihan tampilan per laptop, bukan di JSON)
+        try:
+            self._hidden_builtin = set(json.loads(self._settings.value("presets/hidden_builtin", "[]")))
+        except (TypeError, ValueError):
+            self._hidden_builtin = set()
 
         # buffer grafik (pendek, hanya jendela WINDOW_S) dan buffer event
         # (panjang, seluruh respons sejak event) dipisah supaya metrik
@@ -233,8 +244,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self._build_shortcuts()
         self._refresh_step_btn()
         self._apply_pid_lock()
+        # gain simulasi dari sesi terakhir (mode hardware dipulihkan di set_mode)
+        self._set_dependen(*self._gains_for("sim"))
+        self._refresh_dependen()
+        self.be.set_gains(self.kp.value(), self.ki.value(), self.kd.value())
+        self._sync_preset_combo()
         self._apply_initial_mode(initial_mode)
         self._restore_ui_state()
+        if self._preset_err:
+            QtCore.QTimer.singleShot(0, lambda: notify(
+                self, "Preset PID", self._preset_err, level="warn", blocking=False))
 
         self.timer = QtCore.QTimer(self)
         self.timer.setTimerType(Qt.PreciseTimer)
@@ -263,6 +282,8 @@ class MainWindow(QtWidgets.QMainWindow):
             settings.setValue("top_split", self.top_split.saveState())
             settings.setValue("left_split", self.left_split.saveState())
             settings.setValue("main_split", self.main_split.saveState())
+            self._remember_gains()
+            self._settings.sync()
         except Exception:
             pass
 
@@ -678,6 +699,7 @@ class MainWindow(QtWidgets.QMainWindow):
         controller.body.addLayout(boxes)
         controller.body.addWidget(self.lb_dep)
         controller.body.addWidget(self.lim_box)      # indikator limit switch (hardware)
+        controller.body.insertLayout(0, self._build_preset_row())
         self._refresh_dependen()
         pv.addWidget(controller)
 
@@ -1510,21 +1532,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stop_scenarios("Dihentikan (ganti sumber data)" if self.scn else None)
         if mode != "hw" and self.hw.recording:
             self._toggle_record()
+        # gain tiap mode diingat terpisah: simpan milik mode lama, pulihkan
+        # milik mode baru (gain terakhir, atau default bila belum pernah diubah).
+        self._remember_gains()
         self.mode = mode
         hw = mode == "hw"
-        # gain: hardware punya nilai awal sendiri (konservatif, Ki = 0);
-        # gain simulasi disimpan & dipulihkan saat kembali ke Simulasi.
-        if hw:
-            self._sim_gains = (self.kp.value(), self.ti.value(), self.td.value(),
-                               self.ti.is_off())
-            kp, ti, td = self._to_dependen(*self.HW_GAINS)
-            self._set_dependen(kp, ti, td)
-        elif getattr(self, "_sim_gains", None):
-            kp, ti, td, off = self._sim_gains
-            self._set_dependen(kp, None if off else ti, td)
+        self._set_dependen(*self._gains_for(mode))
         self.be = self.hw if hw else self.sim
         self._refresh_dependen()
         self.be.set_gains(self.kp.value(), self.ki.value(), self.kd.value())
+        self._sync_preset_combo()
         self.hw_box.setVisible(hw)
         self.btn_pid_run.setVisible(hw)
         self.power_card.setVisible(hw)
@@ -1610,6 +1627,8 @@ class MainWindow(QtWidgets.QMainWindow):
         locked = self.pid_locked
         for w in (self.kp, self.ti, self.td):
             w.set_locked(locked)
+        # memuat preset mengubah gain -> ikut gembok; Simpan/Hapus tetap bisa
+        self.cb_preset.setEnabled(not locked)
         self.btn_pid_lock.setText("KUNCI" if self.pid_locked else "BUKA")
         self.btn_pid_lock.setToolTip(
             "Gain PID terkunci \u2014 klik untuk membuka."
@@ -1660,6 +1679,182 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_gains(self, _=None):
         self._refresh_dependen()
         self.be.set_gains(self.kp.value(), self.ki.value(), self.kd.value())
+        self._remember_gains()
+        self._sync_preset_combo()
+
+    # ------------------------------------------------------------------
+    # MEMORI GAIN (QSettings, per mode) & PRESET (data/pid_preset.json)
+    # ------------------------------------------------------------------
+    def _current_gains(self):
+        """(Kp, Ti, Td) dari panel; Ti None bila integral dimatikan."""
+        return (self.kp.value(), None if self.ti.is_off() else self.ti.value(),
+                self.td.value())
+
+    def _read_gain_memory(self, mode):
+        """Gain tersimpan untuk mode ini, atau None bila belum ada / rusak."""
+        try:
+            kp, ti, td = json.loads(self._settings.value(f"gains/{mode}", ""))
+            p = {"nama": "-", "kp": kp, "ti": ti, "td": td}
+            return (kp, ti, td) if presets.valid(p) else None
+        except (TypeError, ValueError):
+            return None
+
+    def _remember_gains(self):
+        g = self._current_gains()
+        self._gain_mem[self.mode] = g
+        self._settings.setValue(f"gains/{self.mode}", json.dumps(list(g)))
+
+    def _gains_for(self, mode):
+        """Gain terakhir mode ini; bila belum ada, gain default mode tersebut."""
+        if self._gain_mem.get(mode):
+            return self._gain_mem[mode]
+        base = self.HW_GAINS if mode == "hw" else SimBackend.DEFAULT_GAINS
+        return self._to_dependen(*base)
+
+    def _build_preset_row(self):
+        row = QtWidgets.QHBoxLayout()
+        row.setSpacing(6)
+        self.cb_preset = QtWidgets.QComboBox()
+        self.cb_preset.setMinimumContentsLength(8)
+        self.cb_preset.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.cb_preset.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                                     QtWidgets.QSizePolicy.Fixed)
+        self.cb_preset.setToolTip("Pilih preset untuk langsung memuat Kp, Ti, Td.\n"
+                                  "Preset tersimpan di data/pid_preset.json.")
+        self.cb_preset.activated.connect(self._on_preset_chosen)   # hanya aksi pengguna
+        self.btn_preset_save = QtWidgets.QPushButton("Simpan")
+        self.btn_preset_save.setToolTip("Simpan Kp, Ti, Td saat ini sebagai preset")
+        self.btn_preset_save.clicked.connect(self._save_preset)
+        self.btn_preset_del = QtWidgets.QPushButton("Hapus")
+        self.btn_preset_del.setToolTip("Hapus preset terpilih (preset bawaan hanya disembunyikan)")
+        self.btn_preset_del.clicked.connect(self._delete_preset)
+        row.addWidget(self.cb_preset, 1)
+        row.addWidget(self.btn_preset_save)
+        row.addWidget(self.btn_preset_del)
+        self._fill_preset_combo()
+        return row
+
+    @staticmethod
+    def _preset_tip(p):
+        ti = "∞ (integral mati)" if p["ti"] is None else f"{p['ti']:.2f} s"
+        tip = f"Kp {p['kp']:.2f} · Ti {ti} · Td {p['td']:.3f} s"
+        if p.get("dibuat"):
+            tip += f"\nDisimpan {p['dibuat']}"
+        return tip
+
+    def _fill_preset_combo(self):
+        cb = self.cb_preset
+        cb.blockSignals(True)
+        cb.clear()
+        cb.addItem("Manual (belum disimpan)", None)
+        builtin = [b for b in presets.BUILTIN if b["nama"] not in self._hidden_builtin]
+        for p in builtin + self._user_presets:
+            cb.addItem(p["nama"], p)
+            cb.setItemData(cb.count() - 1, self._preset_tip(p), Qt.ToolTipRole)
+        if builtin and self._user_presets:
+            cb.insertSeparator(1 + len(builtin))
+        if self._hidden_builtin & {b["nama"] for b in presets.BUILTIN}:
+            cb.insertSeparator(cb.count())
+            cb.addItem("Tampilkan lagi preset bawaan", "unhide")
+        cb.blockSignals(False)
+
+    def _sync_preset_combo(self):
+        """Tampilkan preset yang sama dengan gain sekarang, atau 'Manual'."""
+        if not hasattr(self, "cb_preset"):
+            return
+        kp, ti, td = self._current_gains()
+        idx = 0
+        for i in range(1, self.cb_preset.count()):
+            p = self.cb_preset.itemData(i)
+            if isinstance(p, dict) and presets.same_gains(p, kp, ti, td):
+                idx = i
+                break
+        self.cb_preset.blockSignals(True)
+        self.cb_preset.setCurrentIndex(idx)
+        self.cb_preset.blockSignals(False)
+        p = self.cb_preset.itemData(idx)
+        self.btn_preset_del.setEnabled(isinstance(p, dict))
+
+    def _set_hidden_builtin(self, names):
+        self._hidden_builtin = set(names)
+        self._settings.setValue("presets/hidden_builtin", json.dumps(sorted(names)))
+        self._fill_preset_combo()
+        self._sync_preset_combo()
+
+    def _on_preset_chosen(self, idx):
+        p = self.cb_preset.itemData(idx)
+        if p == "unhide":
+            self._set_hidden_builtin(set())
+            return
+        if not isinstance(p, dict):
+            self._sync_preset_combo()
+            return
+        if self.mode == "hw" and self.pid_run and not confirm(
+                self, "Ganti gain saat PID aktif?",
+                f"Gain di alat langsung berubah ke preset “{p['nama']}”.",
+                points=[self._preset_tip(p).splitlines()[0]]):
+            self._sync_preset_combo()
+            return
+        self._set_dependen(p["kp"], p["ti"], p["td"])
+        self.on_gains()
+
+    def _save_preset(self):
+        kp, ti, td = self._current_gains()
+        cur = self.cb_preset.currentData()
+        start = cur["nama"] if isinstance(cur, dict) and not cur.get("bawaan") else ""
+        new = {"nama": "", "kp": kp, "ti": ti, "td": td, "dibuat": presets.now_text()}
+        name = ask_text(self, "Simpan preset PID", "Nama preset:", text=start,
+                        placeholder="mis. Uji-8 beban 200 g",
+                        points=[self._preset_tip(new).splitlines()[0]])
+        if not name:
+            return
+        if any(b["nama"].lower() == name.lower() for b in presets.BUILTIN):
+            notify(self, "Nama sudah dipakai", f"“{name}” adalah preset bawaan. "
+                   "Pakai nama lain.", level="warn")
+            return
+        new["nama"] = name
+        lst = list(self._user_presets)
+        old = next((i for i, p in enumerate(lst) if p["nama"].lower() == name.lower()), None)
+        if old is not None:
+            if not confirm(self, "Timpa preset?",
+                           f"Preset “{lst[old]['nama']}” sudah ada.",
+                           points=["Lama: " + self._preset_tip(lst[old]).splitlines()[0],
+                                   "Baru: " + self._preset_tip(new).splitlines()[0]],
+                           ok_text="Timpa"):
+                return
+            lst[old] = new
+        else:
+            lst.append(new)
+        self._write_presets(lst)
+
+    def _delete_preset(self):
+        p = self.cb_preset.currentData()
+        if not isinstance(p, dict):
+            return
+        if p.get("bawaan"):
+            if confirm(self, "Sembunyikan preset bawaan?",
+                       f"“{p['nama']}” disembunyikan dari daftar di laptop ini. "
+                       "Gain di panel tidak berubah.",
+                       points=["Munculkan lagi lewat “Tampilkan lagi preset bawaan” "
+                               "di paling bawah daftar preset."],
+                       ok_text="Sembunyikan"):
+                self._set_hidden_builtin(self._hidden_builtin | {p["nama"]})
+            return
+        if not confirm(self, "Hapus preset?", f"“{p['nama']}” dihapus dari "
+                       "data/pid_preset.json. Gain di panel tidak berubah.",
+                       level="danger", ok_text="Hapus"):
+            return
+        self._write_presets([q for q in self._user_presets if q["nama"] != p["nama"]])
+
+    def _write_presets(self, lst):
+        err = presets.save(lst)
+        if err:
+            notify(self, "Preset gagal disimpan", err, level="danger")
+            return
+        self._user_presets = lst
+        self._fill_preset_combo()
+        self._sync_preset_combo()
 
     def _start_pending(self, kind):
         if self.pend is None or self.pend["kind"] != kind:

@@ -17,8 +17,9 @@ _LEVELS = {
 
 class NoticeDialog(QtWidgets.QDialog):
     def __init__(self, parent, level, title, message, points=(),
-                 ok_text="OK", cancel_text=None):
+                 ok_text="OK", cancel_text=None, field=None, placeholder=""):
         super().__init__(parent)
+        self.edit = None
         color, tag = _LEVELS.get(level, _LEVELS["info"])
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
@@ -80,6 +81,12 @@ class NoticeDialog(QtWidgets.QDialog):
             lbl.setObjectName("Point")
             lbl.setWordWrap(True)
             body.addWidget(lbl)
+        if field is not None:
+            self.edit = QtWidgets.QLineEdit(field)
+            self.edit.setPlaceholderText(placeholder)
+            self.edit.setMaxLength(60)
+            body.addSpacing(6)
+            body.addWidget(self.edit)
 
         foot = QtWidgets.QFrame()
         foot.setObjectName("Foot")
@@ -100,6 +107,15 @@ class NoticeDialog(QtWidgets.QDialog):
         fl.addWidget(b_ok)
         col.addWidget(foot)
 
+        if self.edit is not None:
+            # isian teks: Enter = simpan, OK mati selama isian kosong
+            b_ok.setDefault(True)
+            sync = lambda t: b_ok.setEnabled(bool(t.strip()))
+            self.edit.textChanged.connect(sync)
+            sync(self.edit.text())
+            self.edit.selectAll()
+            self.edit.setFocus()
+            return
         # default = tombol aman (Batal) bila ada; Esc selalu menolak
         (b_cancel if cancel_text else b_ok).setDefault(True)
         (b_cancel if cancel_text else b_ok).setFocus()
@@ -110,6 +126,16 @@ def confirm(parent, title, message="", points=(), level="warn",
     """True bila pengguna menekan tombol OK. Default fokus = Batal."""
     return NoticeDialog(parent, level, title, message, points,
                         ok_text, cancel_text).exec() == QtWidgets.QDialog.Accepted
+
+
+def ask_text(parent, title, message="", text="", placeholder="", points=(),
+             ok_text="Simpan", cancel_text="Batal"):
+    """Minta satu baris teks. Kembalikan teks (sudah di-strip) atau None bila batal."""
+    dlg = NoticeDialog(parent, "info", title, message, points, ok_text, cancel_text,
+                       field=text, placeholder=placeholder)
+    if dlg.exec() != QtWidgets.QDialog.Accepted:
+        return None
+    return dlg.edit.text().strip() or None
 
 
 def notify(parent, title, message="", points=(), level="info", ok_text="OK",
